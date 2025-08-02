@@ -1,400 +1,421 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SkyBot – Conversational AI Agents</title>
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
-  <!-- Styles for cosmic background and glassmorphism cards -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SkyBot – Conversational AI Demos</title>
+  <!-- Google Fonts for futuristic typography -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --primary: #00c2ff;
-      --secondary: #9b59b6;
+      /* Accent colours for neon highlights */
+      --accent-teal: #00cfff;
+      --accent-violet: #8f5df4;
+      --text-light: #ffffff;
     }
-    html, body {
+
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
+    }
+
+    body {
       font-family: 'Inter', sans-serif;
-      color: #fff;
-      background: #000;
+      color: var(--text-light);
+      background: #000; /* fallback colour */
       overflow-x: hidden;
     }
-    /* New animated space background */
-    .space-bg {
+
+    /* Background container with two layers of stars to simulate motion */
+    #space-bg {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
       overflow: hidden;
-      z-index: -3;
+      z-index: -2;
     }
-    .space-bg img {
+
+    #space-bg img {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 120%;
-      height: 120%;
-      object-fit: cover;
-      animation: drift 80s linear infinite;
+      width: 200%;
+      height: 200%;
+      opacity: 0.6;
     }
-    .space-bg img.layer2 {
-      animation-duration: 120s;
-      opacity: 0.7;
+
+    #space-bg .layer1 {
+      animation: driftLayer1 60s linear infinite;
     }
-    @keyframes drift {
-      from { transform: translateX(0) translateY(0) scale(1); }
-      to { transform: translateX(-15%) translateY(-10%) scale(1.1); }
+
+    #space-bg .layer2 {
+      animation: driftLayer2 100s linear infinite;
     }
-    .space-overlay {
-      position: fixed;
+
+    /* Keyframes for slow drifting movement */
+    @keyframes driftLayer1 {
+      from {
+        transform: translate3d(0, 0, 0);
+      }
+      to {
+        transform: translate3d(-50%, -25%, 0);
+      }
+    }
+
+    @keyframes driftLayer2 {
+      from {
+        transform: translate3d(0, 0, 0);
+      }
+      to {
+        transform: translate3d(-25%, -50%, 0);
+      }
+    }
+
+    /* Slight gradient overlay for readability */
+    #space-bg::after {
+      content: '';
+      position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: linear-gradient(180deg, rgba(0,0,30,0.7), rgba(0,10,40,0.9));
-      z-index: -2;
+      background: linear-gradient(to bottom, rgba(0, 10, 30, 0.5), rgba(0, 20, 60, 0.8));
+      z-index: 1;
     }
-    /* Navigation bar */
-    header.nav {
+
+    /* Header and navigation */
+    header {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       display: flex;
-      align-items: center;
-      padding: 1rem 1.5rem;
-      z-index: 10;
+      justify-content: center;
+      padding: 10px 20px;
+      z-index: 100;
     }
-    .nav .logo {
-      font-family: 'Orbitron', sans-serif;
-      font-weight: 700;
-      font-size: 1.3rem;
+
+    .nav-wrapper {
+      width: 100%;
+      max-width: 1300px;
       display: flex;
       align-items: center;
+      justify-content: space-between;
     }
-    .nav .logo .icon {
-      width: 0.7rem;
-      height: 0.7rem;
-      margin-left: 0.4rem;
+
+    .logo {
+      display: flex;
+      align-items: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.5rem;
+    }
+
+    .logo .dot {
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
-      background: var(--primary);
-      box-shadow: 0 0 6px var(--primary);
+      background: radial-gradient(circle, var(--accent-teal), var(--accent-violet));
+      margin-right: 8px;
     }
-    .nav .demo-btn {
-      margin: 0 auto;
-      padding: 0.5rem 1.2rem;
-      border-radius: 25px;
-      border: 1px solid var(--primary);
-      color: #fff;
-      text-decoration: none;
+
+    .schedule-btn {
       font-family: 'Inter', sans-serif;
+      padding: 8px 24px;
+      border-radius: 999px;
+      border: 1px solid var(--accent-teal);
+      background: transparent;
+      color: var(--accent-teal);
+      cursor: pointer;
       transition: background 0.3s, box-shadow 0.3s;
-      white-space: nowrap;
     }
-    .nav .demo-btn:hover {
-      background: var(--primary);
-      box-shadow: 0 0 10px var(--primary);
+
+    .schedule-btn:hover {
+      background: var(--accent-teal);
+      color: #00131f;
+      box-shadow: 0 0 12px var(--accent-teal);
     }
+
     /* Hero section */
     .hero {
-      min-height: 100vh;
+      min-height: 90vh;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       text-align: center;
-      padding-top: 8rem;
+      padding: 120px 20px 80px;
     }
+
     .hero h1 {
       font-family: 'Orbitron', sans-serif;
-      font-size: 2.4rem;
-      line-height: 1.4;
-      max-width: 900px;
-      margin: 0 1rem;
-      padding: 0.6rem 1.2rem;
-      background: rgba(0, 0, 0, 0.4);
+      font-size: 2.8rem;
+      line-height: 1.3;
+      background: rgba(0, 0, 0, 0.45);
+      padding: 15px 25px;
       border-radius: 12px;
-      text-shadow: 0 0 6px rgba(0,0,0,0.4);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
     }
-    .hero-line {
-      width: 260px;
+
+    .hero h1 .highlight {
+      color: var(--accent-teal);
+      animation: highlightGlow 1.5s ease-in-out infinite;
+    }
+
+    @keyframes highlightGlow {
+      0%, 100% { text-shadow: 0 0 8px var(--accent-teal), 0 0 15px var(--accent-violet); }
+      50% { text-shadow: 0 0 4px var(--accent-violet), 0 0 8px var(--accent-teal); }
+    }
+
+    .hero .accent-line {
+      margin-top: 14px;
       height: 3px;
-      margin: 1rem auto 0;
-      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      width: 200px;
+      background: linear-gradient(90deg, var(--accent-teal), var(--accent-violet));
       border-radius: 2px;
-      box-shadow: 0 0 10px var(--primary);
     }
-    .highlight {
-      color: var(--primary);
-      text-shadow: 0 0 10px var(--primary);
-    }
-    /* Demos section */
-    section.demos {
-      padding: 4rem 2rem;
+
+    /* Audio demos section */
+    .demos {
+      padding: 60px 20px;
       text-align: center;
     }
-    section.demos h2 {
+
+    .demos h2 {
       font-family: 'Orbitron', sans-serif;
-      font-size: 1.8rem;
-      margin-bottom: 2rem;
+      font-size: 2.2rem;
+      margin-bottom: 30px;
     }
+
     .audio-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 2rem;
-      max-width: 1000px;
+      gap: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      max-width: 1200px;
       margin: 0 auto;
     }
+
     .audio-card {
-      position: relative;
-      background: rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 16px;
-      padding: 1.5rem;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      padding: 20px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
       transition: transform 0.4s, box-shadow 0.4s;
     }
-    .audio-card::before {
-      content: '';
-      position: absolute;
-      top: -2px;
-      left: -2px;
-      right: -2px;
-      bottom: -2px;
-      border-radius: 18px;
-      background: linear-gradient(45deg, var(--primary), var(--secondary));
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-              mask-composite: exclude;
-      pointer-events: none;
+
+    .audio-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
     }
+
     .audio-card h3 {
-      margin: 0 0 0.5rem;
+      font-family: 'Orbitron', sans-serif;
       font-size: 1.1rem;
-      font-weight: 600;
+      margin-bottom: 12px;
+      text-align: center;
     }
+
     .audio-card audio {
       width: 100%;
       outline: none;
     }
-    .audio-card:hover {
-      transform: translateY(-6px);
-      box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-    }
+
     /* Metrics section */
-    section.metrics {
-      padding: 4rem 2rem;
+    .metrics {
+      padding: 60px 20px 80px;
       text-align: center;
     }
-    section.metrics h2 {
+
+    .metrics h2 {
       font-family: 'Orbitron', sans-serif;
-      font-size: 1.8rem;
-      margin-bottom: 0.5rem;
+      font-size: 2.2rem;
+      margin-bottom: 10px;
     }
-    .metrics-line {
-      width: 220px;
+
+    .metrics .line {
       height: 3px;
-      margin: 0 auto 2rem;
-      background: linear-gradient(90deg, var(--primary), var(--secondary));
+      width: 220px;
+      margin: 0 auto 40px;
+      background: linear-gradient(90deg, var(--accent-teal), var(--accent-violet));
       border-radius: 2px;
-      box-shadow: 0 0 10px var(--primary);
     }
-    .stats {
+
+    .stat-container {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 2rem;
+      gap: 20px;
+      max-width: 800px;
+      margin: 0 auto;
     }
+
     .stat-card {
-      position: relative;
-      background: rgba(255,255,255,0.1);
+      width: 320px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 16px;
-      padding: 2rem 1.5rem;
-      min-width: 260px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+      padding: 30px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
     }
-    .stat-card::before {
-      content: '';
-      position: absolute;
-      top: -2px;
-      left: -2px;
-      right: -2px;
-      bottom: -2px;
-      border-radius: 18px;
-      background: linear-gradient(45deg, var(--primary), var(--secondary));
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-              mask-composite: exclude;
-      pointer-events: none;
-    }
-    .stat-number {
+
+    .stat-card h3 {
       font-family: 'Orbitron', sans-serif;
-      font-weight: 700;
-      font-size: 3rem;
-      color: var(--primary);
-      display: inline;
+      font-size: 2.4rem;
+      color: var(--accent-teal);
+      margin-bottom: 10px;
     }
-    .stat-percent {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 2rem;
-      vertical-align: top;
-      margin-left: 0.2rem;
-    }
+
     .stat-card p {
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
+      font-size: 1rem;
+      line-height: 1.4;
     }
-    /* Fade-slide animation */
+
+    /* Animation for fade and slide when sections come into view */
     .fade-slide {
       opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.8s ease, transform 0.8s ease;
+      transform: translateY(30px);
+      transition: opacity 0.8s ease-out, transform 0.8s ease-out;
     }
+
     .fade-slide.visible {
       opacity: 1;
       transform: translateY(0);
     }
-    /* Responsive adjustments */
+
     @media (max-width: 600px) {
       .hero h1 {
-        font-size: 1.8rem;
+        font-size: 2rem;
+        padding: 10px 15px;
       }
-      .nav .demo-btn {
-        padding: 0.4rem 0.8rem;
-        font-size: 0.8rem;
+      .metrics .stat-card {
+        width: 280px;
       }
     }
   </style>
 </head>
 <body>
-  <div class="space-bg">
-    <img src="space_bg1.jpg" alt="Space layer 1">
-    <img src="space_bg2.jpg" class="layer2" alt="Space layer 2">
+  <!-- Moving starry background -->
+  <div id="space-bg">
+    <img src="space_layer1.jpg" alt="Starry background layer" class="layer1" />
+    <img src="space_layer2.jpg" alt="Starry background layer" class="layer2" />
   </div>
-  <div class="space-overlay"></div>
 
-  <header class="nav">
-    <div class="logo">
-      SkyBot
-      <span class="icon"></span>
+  <!-- Navigation bar with logo and schedule button -->
+  <header>
+    <div class="nav-wrapper">
+      <div class="logo"><span class="dot"></span>SkyBot</div>
+      <button class="schedule-btn" onclick="location.href='schedule.html'">Schedule a Demo</button>
     </div>
-    <a href="schedule.html" class="demo-btn">Schedule a Demo</a>
   </header>
 
-  <section class="hero">
-    <h1 id="hero-headline">
-      <span id="hero-prefix">Elevating</span> <span id="hero-keyword" class="highlight">Customer Experience</span> with Conversational AI Agents
+  <!-- Hero section with dynamic phrases -->
+  <section class="hero fade-slide">
+    <h1>
+      <span id="phrase-prefix">Elevating</span>
+      <span id="phrase-keyword" class="highlight">Customer Experience</span>
+      with Conversational AI Agents
     </h1>
-    <div class="hero-line"></div>
+    <div class="accent-line"></div>
   </section>
 
-  <section class="demos">
+  <!-- Audio demo section -->
+  <section class="demos fade-slide">
     <h2>Listen to Our Demos</h2>
     <div class="audio-grid">
-      <div class="audio-card fade-slide">
+      <div class="audio-card">
         <h3>Credit Check Over the Phone</h3>
         <audio controls preload="metadata">
-          <source src="credit_check_over_the_phone.m4a" type="audio/mp4">
-          Your browser does not support the audio element.
+          <source src="credit_check_over_the_phone.m4a" type="audio/mp4" />
+          Your browser does not support this audio element.
         </audio>
       </div>
-      <div class="audio-card fade-slide">
+      <div class="audio-card">
         <h3>Deciding Lease vs. Own</h3>
         <audio controls preload="metadata">
-          <source src="deciding_lease_vs_own.m4a" type="audio/mp4">
-          Your browser does not support the audio element.
+          <source src="deciding_lease_vs_own.m4a" type="audio/mp4" />
+          Your browser does not support this audio element.
         </audio>
       </div>
-      <div class="audio-card fade-slide">
+      <div class="audio-card">
         <h3>Reservation Demo</h3>
         <audio controls preload="metadata">
-          <source src="reservation_demo.m4a" type="audio/mp4">
-          Your browser does not support the audio element.
+          <source src="reservation_demo.m4a" type="audio/mp4" />
+          Your browser does not support this audio element.
         </audio>
       </div>
-      <div class="audio-card fade-slide">
+      <div class="audio-card">
         <h3>Trade-In / Appraisals</h3>
         <audio controls preload="metadata">
-          <source src="trade_in_appraisals.m4a" type="audio/mp4">
-          Your browser does not support the audio element.
+          <source src="trade_in_appraisals.m4a" type="audio/mp4" />
+          Your browser does not support this audio element.
         </audio>
       </div>
     </div>
   </section>
 
-  <section class="metrics">
+  <!-- Metrics section -->
+  <section class="metrics fade-slide">
     <h2>Innovation in Every Interaction</h2>
-    <div class="metrics-line"></div>
-    <div class="stats">
-      <div class="stat-card fade-slide">
-        <span class="stat-number" data-target="85">0</span><span class="stat-percent">%</span>
+    <div class="line"></div>
+    <div class="stat-container">
+      <div class="stat-card">
+        <h3><span class="count" data-target="85">0</span>%</h3>
         <p>Customer Experience increases CSAT by 85%</p>
       </div>
-      <div class="stat-card fade-slide">
-        <span class="stat-number" data-target="75">0</span><span class="stat-percent">%</span>
+      <div class="stat-card">
+        <h3><span class="count" data-target="75">0</span>%</h3>
         <p>Agent Productivity increases Contact Center Agent Productivity by 75%</p>
       </div>
     </div>
   </section>
 
   <script>
-    // Rotate hero phrases
-    const heroPrefixEl = document.getElementById('hero-prefix');
-    const heroKeywordEl = document.getElementById('hero-keyword');
+    // Rotate through phrases with highlighted keywords
     const phrases = [
       { prefix: 'Elevating', keyword: 'Customer Experience' },
       { prefix: 'Empowering', keyword: 'Salespeople' },
       { prefix: 'Supporting', keyword: 'Employees' }
     ];
-    let idx = 0;
-    setInterval(() => {
-      idx = (idx + 1) % phrases.length;
-      heroPrefixEl.textContent = phrases[idx].prefix;
-      heroKeywordEl.textContent = phrases[idx].keyword;
-    }, 6000);
+    let phraseIndex = 0;
+    const prefixEl = document.getElementById('phrase-prefix');
+    const keywordEl = document.getElementById('phrase-keyword');
 
-    // Fade-slide observer
-    const fadeObserver = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
+    function changePhrase() {
+      phraseIndex = (phraseIndex + 1) % phrases.length;
+      prefixEl.textContent = phrases[phraseIndex].prefix;
+      keywordEl.textContent = phrases[phraseIndex].keyword;
+    }
+    // Change phrase every 5 seconds
+    setInterval(changePhrase, 5000);
+
+    // Intersection observer for fade-slide and count animations
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
         if (entry.isIntersecting) {
           entry.target.classList.add('visible');
-          fadeObserver.unobserve(entry.target);
+          // If there are counters inside the element, animate them
+          entry.target.querySelectorAll('.count').forEach((counter) => {
+            const target = +counter.getAttribute('data-target');
+            let count = 0;
+            const step = target / 60;
+            const interval = setInterval(() => {
+              count += step;
+              if (count >= target) {
+                counter.textContent = target;
+                clearInterval(interval);
+              } else {
+                counter.textContent = Math.floor(count);
+              }
+            }, 30);
+          });
         }
       });
     }, { threshold: 0.2 });
-    document.querySelectorAll('.fade-slide').forEach(el => fadeObserver.observe(el));
-
-    // Counter animation
-    const counters = document.querySelectorAll('.stat-number');
-    const counterObserver = new IntersectionObserver(entries => {
-      entries.forEach(entry => {
-        const el = entry.target;
-        if (entry.isIntersecting) {
-          const target = parseInt(el.getAttribute('data-target'), 10);
-          let count = 0;
-          const duration = 2000;
-          const increment = target / (duration / 30);
-          if (el._interval) clearInterval(el._interval);
-          el._interval = setInterval(() => {
-            count += increment;
-            if (count >= target) {
-              count = target;
-              clearInterval(el._interval);
-            }
-            el.textContent = Math.round(count);
-          }, 30);
-        } else {
-          el.textContent = '0';
-          if (el._interval) clearInterval(el._interval);
-        }
-      });
-    }, { threshold: 0.8 });
-    counters.forEach(num => counterObserver.observe(num));
+    document.querySelectorAll('.fade-slide').forEach((el) => observer.observe(el));
   </script>
 </body>
 </html>
