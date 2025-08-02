@@ -96,7 +96,7 @@
       left: 0;
       width: 100%;
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-start;
       align-items: center;
       padding: 1rem 2rem;
       z-index: 10;
@@ -110,6 +110,8 @@
       font-size: 1.4rem;
       display: flex;
       align-items: center;
+      position: relative;
+      z-index: 11;
     }
     header.nav .logo .icon {
       display: inline-block;
@@ -129,6 +131,11 @@
       text-decoration: none;
       transition: background 0.3s, box-shadow 0.3s;
       font-weight: 500;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      white-space: nowrap;
     }
     header.nav .btn:hover {
       background: var(--primary);
