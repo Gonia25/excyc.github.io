@@ -1,28 +1,20 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Audio Demo</title>
-  <!-- Google Fonts for futuristic typography -->
-  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <title>SkyBot – Conversational AI Showcase</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    /* Reset and base */
-    html, body {
-      margin: 0;
-      height: 100%;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; width:100%; margin:0; font-family: 'Inter', sans-serif; color: #fff; scroll-behavior: smooth; }
     body {
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      font-family: 'Inter', sans-serif;
-      color: #E0E0E0;
-      /* Animated gradient background with dark blue, teal and purple hues */
-      background: linear-gradient(120deg, #01012a 0%, #012d41 25%, #093b6d 50%, #261946 75%);
+      background: linear-gradient(120deg, #01012a, #012d41, #093b6d, #261946);
       background-size: 400% 400%;
       animation: gradientAnimation 15s ease infinite;
+      overflow-x: hidden;
     }
     @keyframes gradientAnimation {
       0% { background-position: 0% 50%; }
@@ -36,126 +28,269 @@
       left: 0;
       width: 100%;
       height: 100%;
-      z-index: 0;
+      z-index: -1;
       pointer-events: none;
     }
-    /* Glassmorphism container */
-    .glass {
-      position: relative;
-      z-index: 1;
-      max-width: 80%;
-      padding: 2rem;
-      background: rgba(255, 255, 255, 0.1);
-      border-radius: 15px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.37);
+    /* Navbar */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 0.8rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.2);
       backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 1.6rem;
+      color: #fff;
+    }
+    .logo svg { width: 26px; height: 26px; margin-right: 0.5rem; fill: #00BFFF; }
+    .btn {
+      text-decoration: none;
+      color: #fff;
+      padding: 0.6rem 1.2rem;
+      border-radius: 25px;
+      border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(255,255,255,0.1);
+      font-family: 'Inter', sans-serif;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    .btn:hover { background: rgba(255,255,255,0.2); box-shadow: 0 0 10px #00ffff; }
+    /* Hero Section */
+    #hero {
+      display: flex;
+      align-items: center;
+      justify-content: center;
       text-align: center;
+      min-height: 80vh;
+      padding-top: 8rem;
+      padding-bottom: 4rem;
+    }
+    #hero h1 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.4rem;
+      line-height: 1.3;
+      max-width: 800px;
+    }
+    .rotating {
+      display: inline-block;
+      position: relative;
+      width: 14ch;
+      height: 1.2em;
+      overflow: hidden;
+      vertical-align: bottom;
+    }
+    .rotating .word {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      opacity: 0;
+      animation: rotateWords 9s infinite;
+    }
+    .rotating .word:nth-child(1) { animation-delay: 0s; }
+    .rotating .word:nth-child(2) { animation-delay: 3s; }
+    .rotating .word:nth-child(3) { animation-delay: 6s; }
+    @keyframes rotateWords {
+      0% { opacity: 0; transform: translateY(100%); }
+      10% { opacity: 1; transform: translateY(0); }
+      30% { opacity: 1; transform: translateY(0); }
+      40% { opacity: 0; transform: translateY(-100%); }
+      100% { opacity: 0; }
+    }
+    /* Audio Demo Section */
+    #audio-demo {
+      padding: 4rem 2rem;
+      text-align: center;
+    }
+    #audio-demo h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2rem;
+      margin-bottom: 2rem;
+    }
+    .audio-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 2rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .audio-card {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(15px);
+      border-radius: 15px;
+      padding: 1.5rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.37);
       opacity: 0;
       transform: translateY(20px);
-      animation: fadeSlideIn 1.2s ease forwards;
+      transition: opacity 0.6s ease, transform 0.6s ease;
     }
-    @keyframes fadeSlideIn {
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    h1 {
-      font-family: 'Orbitron', sans-serif;
-      font-weight: 700;
-      font-size: 2.4rem;
-      margin: 0;
+    .audio-card.visible { opacity: 1; transform: translateY(0); }
+    .audio-card h3 {
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
       color: #E8EAF6;
-      text-shadow: 0 0 12px rgba(120, 200, 255, 0.45);
-      transition: text-shadow 0.3s;
     }
-    h1:hover {
-      text-shadow: 0 0 25px rgba(120, 200, 255, 0.9);
-    }
-    /* Neon accent line */
-    .accent {
-      width: 60%;
-      height: 3px;
-      margin: 1rem auto 1.5rem;
-      border-radius: 3px;
-      background: linear-gradient(90deg, #00f2fe 0%, #8a00e6 100%);
-      box-shadow: 0 0 12px rgba(0, 242, 254, 0.6);
-    }
-    /* Audio player styling */
-    audio {
+    .audio-card audio {
       width: 100%;
-      max-width: 600px;
       outline: none;
-      background-color: rgba(255, 255, 255, 0.05);
+      background-color: rgba(255,255,255,0.05);
       border-radius: 10px;
-      padding: 0.5rem 0;
       filter: invert(1) brightness(1.2);
       transition: box-shadow 0.3s;
     }
-    audio:hover {
-      box-shadow: 0 0 10px rgba(120, 200, 255, 0.6);
+    .audio-card audio:hover { box-shadow: 0 0 10px #00ffff; }
+    /* Metrics Section */
+    #metrics {
+      padding: 4rem 2rem;
+      text-align: center;
     }
-    audio::-webkit-media-controls-panel {
-      background-color: transparent;
+    #metrics h2 {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2rem;
     }
-    audio::-webkit-media-controls-play-button,
-    audio::-webkit-media-controls-pause-button,
-    audio::-webkit-media-controls-volume-slider,
-    audio::-webkit-media-controls-mute-button,
-    audio::-webkit-media-controls-timeline {
-      filter: invert(1);
+    #metrics .accent-line {
+      width: 60%;
+      height: 3px;
+      margin: 0.5rem auto 2rem;
+      border-radius: 3px;
+      background: linear-gradient(90deg, #00f2fe, #8a00e6);
+      box-shadow: 0 0 12px rgba(0,242,254,0.6);
+    }
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2rem;
+    }
+    .stat-card {
+      background: rgba(255,255,255,0.1);
+      backdrop-filter: blur(15px);
+      border-radius: 15px;
+      padding: 2rem;
+      width: 280px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.37);
+    }
+    .stat-card .number {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 3rem;
+      color: #00ffff;
+      margin-bottom: 0.5rem;
+    }
+    .stat-card p {
+      font-family: 'Inter', sans-serif;
+      font-size: 1rem;
+      color: #E8EAF6;
     }
     /* Responsive adjustments */
     @media (max-width: 600px) {
-      .glass {
-        padding: 1.5rem;
-        max-width: 90%;
-      }
-      h1 {
-        font-size: 1.8rem;
-      }
+      .navbar { padding: 0.6rem 1rem; }
+      #hero h1 { font-size: 1.8rem; }
+      #audio-demo h2, #metrics h2 { font-size: 1.6rem; }
     }
   </style>
 </head>
 <body>
-  <!-- Particle canvas for glowing dots -->
   <canvas id="particles"></canvas>
-  <div class="glass">
-    <h1>Listen to the Demo</h1>
-    <div class="accent"></div>
-    <audio controls>
-      <source src="demo.m4a" type="audio/mp4" />
-      Your browser does not support this audio element.
-    </audio>
-  </div>
+  <nav class="navbar">
+    <div class="logo">
+      <!-- Simple sky/star icon -->
+      <svg viewBox="0 0 24 24">
+        <path d="M12 2l1.09 3.41L16 6l-2.73 1.99L14.18 12l-2.18-1.59L9.82 12l.91-3.01L8 6l2.91-.59L12 2z"/>
+      </svg>
+      <span>SkyBot</span>
+    </div>
+    <a href="schedule.html" class="btn">Schedule a Demo</a>
+  </nav>
+  <section id="hero">
+    <h1>Elevating <span class="rotating">
+      <span class="word">Customer Experience</span>
+      <span class="word">Salesperson</span>
+      <span class="word">Employee</span>
+    </span> with Conversational AI Agents.</h1>
+  </section>
+  <section id="audio-demo">
+    <h2>Listen to Our Demos</h2>
+    <div class="audio-grid">
+      <div class="audio-card">
+        <h3>Credit Check Over the Phone (Daniel PreQual Demo)</h3>
+        <audio controls>
+          <source src="daniel_prequal.m4a" type="audio/mp4" />
+          Your browser does not support this audio element.
+        </audio>
+      </div>
+      <div class="audio-card">
+        <h3>Deciding Lease vs. Own (Gosia Lease vs. Own Demo)</h3>
+        <audio controls>
+          <source src="gosia_lease_own.m4a" type="audio/mp4" />
+          Your browser does not support this audio element.
+        </audio>
+      </div>
+      <div class="audio-card">
+        <h3>Reservation Demo (Gosia Demo Reservation)</h3>
+        <audio controls>
+          <source src="gosia_reservation.m4a" type="audio/mp4" />
+          Your browser does not support this audio element.
+        </audio>
+      </div>
+      <div class="audio-card">
+        <h3>Trade-In / Appraisals (Daniel Demo Trade-In)</h3>
+        <audio controls>
+          <source src="daniel_tradein.m4a" type="audio/mp4" />
+          Your browser does not support this audio element.
+        </audio>
+      </div>
+    </div>
+  </section>
+  <section id="metrics">
+    <h2>Innovation in Every Interaction</h2>
+    <div class="accent-line"></div>
+    <div class="stats">
+      <div class="stat-card">
+        <div class="number" data-target="85">0%</div>
+        <p>Customer Experience increases CSAT by 85%</p>
+      </div>
+      <div class="stat-card">
+        <div class="number" data-target="75">0%</div>
+        <p>Agent Productivity increases Contact Center Agent Productivity by 75%</p>
+      </div>
+    </div>
+  </section>
   <script>
     /* Particle animation script */
     const canvas = document.getElementById('particles');
     const ctx = canvas.getContext('2d');
     let particles = [];
-    const colors = ['rgba(0,242,255,0.5)', 'rgba(138,0,230,0.5)', 'rgba(0,255,191,0.5)'];
-
+    const colors = ['rgba(0,242,255,0.4)','rgba(138,0,230,0.4)','rgba(0,255,191,0.4)'];
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     }
-
     function createParticles() {
       particles = [];
-      const count = Math.floor((canvas.width + canvas.height) / 25);
+      const count = Math.floor((canvas.width + canvas.height) / 20);
       for (let i = 0; i < count; i++) {
         particles.push({
           x: Math.random() * canvas.width,
           y: Math.random() * canvas.height,
-          vx: (Math.random() - 0.5) * 0.15,
-          vy: (Math.random() - 0.5) * 0.15,
+          vx: (Math.random() - 0.5) * 0.2,
+          vy: (Math.random() - 0.5) * 0.2,
           size: Math.random() * 2 + 0.5,
           color: colors[Math.floor(Math.random() * colors.length)]
         });
       }
     }
-
     function drawParticles() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       particles.forEach(p => {
@@ -163,10 +298,8 @@
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fillStyle = p.color;
         ctx.fill();
-        // Move particles
         p.x += p.vx;
         p.y += p.vy;
-        // Wrap around edges for continuous motion
         if (p.x < 0) p.x = canvas.width;
         if (p.x > canvas.width) p.x = 0;
         if (p.y < 0) p.y = canvas.height;
@@ -174,15 +307,51 @@
       });
       requestAnimationFrame(drawParticles);
     }
-
     window.addEventListener('resize', () => {
       resizeCanvas();
       createParticles();
     });
-
     resizeCanvas();
     createParticles();
     drawParticles();
+
+    // IntersectionObserver for audio cards
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.2 });
+    document.querySelectorAll('.audio-card').forEach(card => observer.observe(card));
+
+    // Count up animation
+    function animateCount(el, target) {
+      let startTime = null;
+      function update(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const progress = timestamp - startTime;
+        const duration = 2000;
+        const val = Math.min(Math.floor(progress / duration * target), target);
+        el.textContent = val + '%';
+        if (progress < duration) {
+          requestAnimationFrame(update);
+        }
+      }
+      requestAnimationFrame(update);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.stat-card .number').forEach(el => {
+        const target = parseInt(el.getAttribute('data-target'));
+        animateCount(el, target);
+      });
+    });
+    // Parallax scrolling (background position)
+    window.addEventListener('scroll', () => {
+      const y = window.pageYOffset;
+      document.body.style.backgroundPosition = `center ${y * 0.2}px`;
+    });
   </script>
 </body>
 </html>
