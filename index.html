@@ -3,227 +3,169 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SkyBot – Elevating Customer Experiences</title>
-  <!-- Preconnects for faster font loading -->
+  <title>SkyBot – Conversational AI Agents</title>
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <!-- Google Fonts: Orbitron for headings and Inter for body text -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <!-- Styles for cosmic background and glassmorphism cards -->
   <style>
-    /* Root colour variables for easy theming */
     :root {
-      --primary: #00c2ff; /* teal accent colour */
-      --secondary: #9b59b6; /* violet accent colour */
-      --bg-dark: #020a1f; /* very dark navy for base */
-      --glass-bg: rgba(255, 255, 255, 0.1);
-      --border-colour: rgba(255, 255, 255, 0.2);
+      --primary: #00c2ff;
+      --secondary: #9b59b6;
     }
-
     html, body {
       margin: 0;
       padding: 0;
-      height: 100%;
       font-family: 'Inter', sans-serif;
-      color: #ffffff;
+      color: #fff;
+      background: #000;
       overflow-x: hidden;
-      background: var(--bg-dark);
     }
-
-    /* Parallax layers container */
-    .parallax-layer {
+    /* New animated space background */
+    .space-bg {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
+      overflow: hidden;
       z-index: -3;
-      pointer-events: none;
     }
-
-    /* Background gradient layer */
-    .gradient-layer {
-      z-index: -4;
-      background: linear-gradient(160deg, #041e42, #071a3c, #041e42);
-      animation: gradientShift 30s ease infinite;
+    .space-bg img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 120%;
+      height: 120%;
+      object-fit: cover;
+      animation: drift 80s linear infinite;
     }
-
-    @keyframes gradientShift {
-      0% { background-position: 0% 50%; }
-      50% { background-position: 100% 50%; }
-      100% { background-position: 0% 50%; }
+    .space-bg img.layer2 {
+      animation-duration: 120s;
+      opacity: 0.7;
     }
-
-    /* Nebula layer using radial gradients; it fades and shifts gently */
-    .nebula-layer {
-      z-index: -3;
-      opacity: 0.5;
-      background: radial-gradient(circle at 20% 30%, rgba(75,0,130,0.4), transparent 50%),
-                  radial-gradient(circle at 80% 70%, rgba(0, 180, 255, 0.4), transparent 50%),
-                  radial-gradient(circle at 50% 50%, rgba(120, 0, 255, 0.3), transparent 60%);
-      animation: nebulaMove 40s ease-in-out infinite;
+    @keyframes drift {
+      from { transform: translateX(0) translateY(0) scale(1); }
+      to { transform: translateX(-15%) translateY(-10%) scale(1.1); }
     }
-
-    @keyframes nebulaMove {
-      0%, 100% { background-position: 0% 0%, 0% 0%, 0% 0%; }
-      50% { background-position: 50% 50%, 100% 100%, 75% 25%; }
-    }
-
-    /* Star field canvas fills the screen */
-    #star-canvas {
+    .space-overlay {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
+      background: linear-gradient(180deg, rgba(0,0,30,0.7), rgba(0,10,40,0.9));
       z-index: -2;
-      pointer-events: none;
     }
-    /* Remove comet layers and animations for improved performance */
-
-    /* Nav bar styles */
+    /* Navigation bar */
     header.nav {
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       display: flex;
-      /* logo sits on the left; button will be absolutely centered */
-      justify-content: flex-start;
       align-items: center;
-      padding: 1rem 2rem;
+      padding: 1rem 1.5rem;
       z-index: 10;
-      backdrop-filter: blur(10px);
-      background: rgba(2, 10, 31, 0.5);
-      border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    header.nav .logo {
+    .nav .logo {
       font-family: 'Orbitron', sans-serif;
       font-weight: 700;
-      font-size: 1.4rem;
+      font-size: 1.3rem;
       display: flex;
       align-items: center;
-      position: relative;
-      z-index: 11; /* above the button so it doesn't overlay */
     }
-    header.nav .logo .icon {
-      display: inline-block;
-      width: 0.8rem;
-      height: 0.8rem;
-      background: var(--primary);
-      border-radius: 50%;
+    .nav .logo .icon {
+      width: 0.7rem;
+      height: 0.7rem;
       margin-left: 0.4rem;
-      box-shadow: 0 0 8px var(--primary);
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 6px var(--primary);
     }
-    header.nav .btn {
-      font-family: 'Inter', sans-serif;
+    .nav .demo-btn {
+      margin: 0 auto;
       padding: 0.5rem 1.2rem;
-      border-radius: 30px;
+      border-radius: 25px;
       border: 1px solid var(--primary);
       color: #fff;
       text-decoration: none;
+      font-family: 'Inter', sans-serif;
       transition: background 0.3s, box-shadow 0.3s;
-      font-weight: 500;
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 10;
       white-space: nowrap;
     }
-    header.nav .btn:hover {
+    .nav .demo-btn:hover {
       background: var(--primary);
       box-shadow: 0 0 10px var(--primary);
     }
-
-    /* Hero section styling */
+    /* Hero section */
     .hero {
       min-height: 100vh;
       display: flex;
-      align-items: center;
+      flex-direction: column;
       justify-content: center;
+      align-items: center;
       text-align: center;
       padding-top: 8rem;
     }
     .hero h1 {
       font-family: 'Orbitron', sans-serif;
-      font-size: 2.5rem;
+      font-size: 2.4rem;
       line-height: 1.4;
       max-width: 900px;
       margin: 0 1rem;
-      text-shadow: 0 0 8px rgba(255,255,255,0.5);
-      /* subtle backdrop to aid readability over animated backgrounds */
-      background: rgba(0, 0, 0, 0.35);
       padding: 0.6rem 1.2rem;
+      background: rgba(0, 0, 0, 0.4);
       border-radius: 12px;
-      display: inline-block;
+      text-shadow: 0 0 6px rgba(0,0,0,0.4);
     }
-  .hero-line {
-      width: 240px;
+    .hero-line {
+      width: 260px;
       height: 3px;
       margin: 1rem auto 0;
       background: linear-gradient(90deg, var(--primary), var(--secondary));
       border-radius: 2px;
       box-shadow: 0 0 10px var(--primary);
-  }
-    /* Highlighted keyword in hero headline */
-    .hero .highlight {
+    }
+    .highlight {
       color: var(--primary);
-      text-shadow: 0 0 12px var(--primary), 0 0 20px var(--secondary);
+      text-shadow: 0 0 10px var(--primary);
     }
-
-    /* When rotating, briefly intensify the glow */
-    .hero.rotating .highlight {
-      animation: highlightGlow 0.6s ease forwards;
-    }
-    @keyframes highlightGlow {
-      from { text-shadow: 0 0 4px var(--primary), 0 0 8px var(--secondary); }
-      to { text-shadow: 0 0 12px var(--primary), 0 0 24px var(--secondary); }
-    }
-
     /* Demos section */
     section.demos {
-      padding: 4rem 2rem 5rem;
+      padding: 4rem 2rem;
       text-align: center;
     }
     section.demos h2 {
       font-family: 'Orbitron', sans-serif;
-      font-weight: 700;
       font-size: 1.8rem;
       margin-bottom: 2rem;
     }
     .audio-grid {
       display: grid;
-      /* Force two columns on larger screens for a consistent 2x2 layout */
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 2rem;
-      width: 100%;
       max-width: 1000px;
       margin: 0 auto;
     }
-    /* Stack audio cards on narrow screens */
-    @media (max-width: 800px) {
-      .audio-grid {
-        grid-template-columns: 1fr;
-      }
-    }
     .audio-card {
-      backdrop-filter: blur(10px);
-      background: var(--glass-bg);
-      border: 1px solid var(--border-colour);
+      position: relative;
+      background: rgba(255,255,255,0.1);
       border-radius: 16px;
       padding: 1.5rem;
-      box-shadow: 0 0 10px rgba(0,0,0,0.4);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
       transition: transform 0.4s, box-shadow 0.4s;
-      position: relative;
     }
     .audio-card::before {
-      content: "";
+      content: '';
       position: absolute;
       top: -2px;
       left: -2px;
       right: -2px;
       bottom: -2px;
       border-radius: 18px;
-      padding: 2px;
       background: linear-gradient(45deg, var(--primary), var(--secondary));
       -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
       -webkit-mask-composite: xor;
@@ -238,16 +180,14 @@
     .audio-card audio {
       width: 100%;
       outline: none;
-      /* do not apply colour inversions to native controls; leave as default for better compatibility */
     }
     .audio-card:hover {
       transform: translateY(-6px);
       box-shadow: 0 8px 20px rgba(0,0,0,0.6);
     }
-
     /* Metrics section */
     section.metrics {
-      padding: 4rem 2rem 6rem;
+      padding: 4rem 2rem;
       text-align: center;
     }
     section.metrics h2 {
@@ -270,17 +210,16 @@
       gap: 2rem;
     }
     .stat-card {
-      background: var(--glass-bg);
-      border: 1px solid var(--border-colour);
+      position: relative;
+      background: rgba(255,255,255,0.1);
       border-radius: 16px;
       padding: 2rem 1.5rem;
       min-width: 260px;
-      position: relative;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 0 10px rgba(0,0,0,0.4);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
     }
     .stat-card::before {
-      content: "";
+      content: '';
       position: absolute;
       top: -2px;
       left: -2px;
@@ -297,7 +236,6 @@
       font-family: 'Orbitron', sans-serif;
       font-weight: 700;
       font-size: 3rem;
-      line-height: 1;
       color: var(--primary);
       display: inline;
     }
@@ -311,8 +249,7 @@
       margin-top: 0.5rem;
       font-size: 0.9rem;
     }
-
-    /* Fade/slide animation for cards */
+    /* Fade-slide animation */
     .fade-slide {
       opacity: 0;
       transform: translateY(20px);
@@ -322,13 +259,12 @@
       opacity: 1;
       transform: translateY(0);
     }
-
-    /* Responsive tweaks */
+    /* Responsive adjustments */
     @media (max-width: 600px) {
       .hero h1 {
         font-size: 1.8rem;
       }
-      header.nav .btn {
+      .nav .demo-btn {
         padding: 0.4rem 0.8rem;
         font-size: 0.8rem;
       }
@@ -336,65 +272,61 @@
   </style>
 </head>
 <body>
-  <!-- Background layers for parallax -->
-  <div class="parallax-layer gradient-layer" data-speed="0.02"></div>
-  <div class="parallax-layer nebula-layer" data-speed="0.05"></div>
-  <canvas id="star-canvas"></canvas>
-  <!-- Removed comet layer for stability and performance -->
+  <div class="space-bg">
+    <img src="space_bg1.jpg" alt="Space layer 1">
+    <img src="space_bg2.jpg" class="layer2" alt="Space layer 2">
+  </div>
+  <div class="space-overlay"></div>
 
-  <!-- Navigation bar -->
   <header class="nav">
     <div class="logo">
       SkyBot
       <span class="icon"></span>
     </div>
-    <a href="schedule.html" class="btn">Schedule a Demo</a>
+    <a href="schedule.html" class="demo-btn">Schedule a Demo</a>
   </header>
 
-  <!-- Hero section with rotating phrases -->
   <section class="hero">
-    <h1 id="hero-headline" class="hero-text">
+    <h1 id="hero-headline">
       <span id="hero-prefix">Elevating</span> <span id="hero-keyword" class="highlight">Customer Experience</span> with Conversational AI Agents
     </h1>
     <div class="hero-line"></div>
   </section>
 
-  <!-- Audio demo section -->
   <section class="demos">
     <h2>Listen to Our Demos</h2>
     <div class="audio-grid">
       <div class="audio-card fade-slide">
         <h3>Credit Check Over the Phone</h3>
-        <audio controls>
-          <source src="credit_check_over_the_phone.mp3" type="audio/mpeg">
-          Your browser does not support the audio tag.
+        <audio controls preload="metadata">
+          <source src="credit_check_over_the_phone.m4a" type="audio/mp4">
+          Your browser does not support the audio element.
         </audio>
       </div>
       <div class="audio-card fade-slide">
         <h3>Deciding Lease vs. Own</h3>
-        <audio controls>
-          <source src="deciding_lease_vs_own.mp3" type="audio/mpeg">
-          Your browser does not support the audio tag.
+        <audio controls preload="metadata">
+          <source src="deciding_lease_vs_own.m4a" type="audio/mp4">
+          Your browser does not support the audio element.
         </audio>
       </div>
       <div class="audio-card fade-slide">
         <h3>Reservation Demo</h3>
-        <audio controls>
-          <source src="reservation_demo.mp3" type="audio/mpeg">
-          Your browser does not support the audio tag.
+        <audio controls preload="metadata">
+          <source src="reservation_demo.m4a" type="audio/mp4">
+          Your browser does not support the audio element.
         </audio>
       </div>
       <div class="audio-card fade-slide">
         <h3>Trade-In / Appraisals</h3>
-        <audio controls>
-          <source src="trade_in_appraisals.mp3" type="audio/mpeg">
-          Your browser does not support the audio tag.
+        <audio controls preload="metadata">
+          <source src="trade_in_appraisals.m4a" type="audio/mp4">
+          Your browser does not support the audio element.
         </audio>
       </div>
     </div>
   </section>
 
-  <!-- Metrics section -->
   <section class="metrics">
     <h2>Innovation in Every Interaction</h2>
     <div class="metrics-line"></div>
@@ -411,124 +343,58 @@
   </section>
 
   <script>
-    // Parallax scrolling effect for background layers
-    const parallaxLayers = document.querySelectorAll('.parallax-layer');
-    window.addEventListener('scroll', () => {
-      const scrollY = window.pageYOffset;
-      parallaxLayers.forEach(layer => {
-        const speed = parseFloat(layer.getAttribute('data-speed'));
-        layer.style.transform = `translateY(${scrollY * speed}px)`;
-      });
-    });
-
-    // Starfield generation on canvas
-    const starCanvas = document.getElementById('star-canvas');
-    const starCtx = starCanvas.getContext('2d');
-    let stars = [];
-    // Reduce star count for better performance across devices
-    const starCount = 150;
-
-    function resizeCanvas() {
-      starCanvas.width = window.innerWidth;
-      starCanvas.height = window.innerHeight;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    function initStars() {
-      stars = [];
-      for (let i = 0; i < starCount; i++) {
-        stars.push({
-          x: Math.random() * starCanvas.width,
-          y: Math.random() * starCanvas.height,
-          radius: Math.random() * 1.2 + 0.2,
-          speed: Math.random() * 0.2 + 0.05,
-        });
-      }
-    }
-
-    function updateStars() {
-      starCtx.clearRect(0, 0, starCanvas.width, starCanvas.height);
-      stars.forEach(star => {
-        star.y += star.speed;
-        if (star.y > starCanvas.height) star.y = 0;
-        starCtx.beginPath();
-        starCtx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
-        const alpha = 0.5 + Math.random() * 0.5;
-        starCtx.fillStyle = `rgba(255,255,255,${alpha})`;
-        starCtx.fill();
-      });
-      requestAnimationFrame(updateStars);
-    }
-    initStars();
-    updateStars();
-
-    // Rotating phrases logic for the hero headline (prefix + highlighted keyword)
+    // Rotate hero phrases
     const heroPrefixEl = document.getElementById('hero-prefix');
     const heroKeywordEl = document.getElementById('hero-keyword');
-    const heroSection = document.querySelector('.hero');
-    const phraseSets = [
+    const phrases = [
       { prefix: 'Elevating', keyword: 'Customer Experience' },
       { prefix: 'Empowering', keyword: 'Salespeople' },
       { prefix: 'Supporting', keyword: 'Employees' }
     ];
-    let phraseIndex = 0;
-    function rotatePhrases() {
-      phraseIndex = (phraseIndex + 1) % phraseSets.length;
-      const { prefix, keyword } = phraseSets[phraseIndex];
-      heroPrefixEl.textContent = prefix;
-      heroKeywordEl.textContent = keyword;
-      // trigger glow animation on highlight
-      heroSection.classList.add('rotating');
-      setTimeout(() => {
-        heroSection.classList.remove('rotating');
-      }, 600);
-    }
-    // rotate every 5 seconds
-    setInterval(rotatePhrases, 5000);
+    let idx = 0;
+    setInterval(() => {
+      idx = (idx + 1) % phrases.length;
+      heroPrefixEl.textContent = phrases[idx].prefix;
+      heroKeywordEl.textContent = phrases[idx].keyword;
+    }, 6000);
 
-    // Intersection observer for fade-slide animations
-    const observer = new IntersectionObserver(entries => {
+    // Fade-slide observer
+    const fadeObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
           entry.target.classList.add('visible');
-          observer.unobserve(entry.target);
+          fadeObserver.unobserve(entry.target);
         }
       });
     }, { threshold: 0.2 });
-    document.querySelectorAll('.fade-slide').forEach(elem => {
-      observer.observe(elem);
-    });
+    document.querySelectorAll('.fade-slide').forEach(el => fadeObserver.observe(el));
 
-    // Counter animation for metrics
-    const statNumbers = document.querySelectorAll('.stat-number');
-    const statObserver = new IntersectionObserver(entries => {
+    // Counter animation
+    const counters = document.querySelectorAll('.stat-number');
+    const counterObserver = new IntersectionObserver(entries => {
       entries.forEach(entry => {
         const el = entry.target;
         if (entry.isIntersecting) {
-          // restart counter each time element appears in view
           const target = parseInt(el.getAttribute('data-target'), 10);
           let count = 0;
           const duration = 2000;
           const increment = target / (duration / 30);
-          // clear any existing interval stored on element
-          if (el._counterInterval) clearInterval(el._counterInterval);
-          el._counterInterval = setInterval(() => {
+          if (el._interval) clearInterval(el._interval);
+          el._interval = setInterval(() => {
             count += increment;
             if (count >= target) {
               count = target;
-              clearInterval(el._counterInterval);
+              clearInterval(el._interval);
             }
             el.textContent = Math.round(count);
           }, 30);
         } else {
-          // reset text to 0 when leaving view so it animates again next time
           el.textContent = '0';
-          if (el._counterInterval) clearInterval(el._counterInterval);
+          if (el._interval) clearInterval(el._interval);
         }
       });
     }, { threshold: 0.8 });
-    statNumbers.forEach(num => statObserver.observe(num));
+    counters.forEach(num => counterObserver.observe(num));
   </script>
 </body>
 </html>
