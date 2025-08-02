@@ -78,44 +78,7 @@
       z-index: -2;
       pointer-events: none;
     }
-
-    /* Comet animation container */
-    .comet-layer {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      z-index: -1;
-      pointer-events: none;
-    }
-
-    .comet {
-      position: absolute;
-      top: -10px;
-      left: 50%;
-      width: 2px;
-      height: 80px;
-      background: linear-gradient(0deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.8) 100%);
-      opacity: 0;
-      transform: rotate(35deg);
-      animation: cometTrail 4s linear infinite;
-    }
-
-    @keyframes cometTrail {
-      0% {
-        transform: translate(-50%, -10%) rotate(35deg);
-        opacity: 0;
-      }
-      10% {
-        opacity: 1;
-      }
-      100% {
-        transform: translate(150%, 110%) rotate(35deg);
-        opacity: 0;
-      }
-    }
+    /* Remove comet layers and animations for improved performance */
 
     /* Nav bar styles */
     header.nav {
@@ -201,11 +164,19 @@
       border-radius: 2px;
       box-shadow: 0 0 10px var(--primary);
   }
-    /* Glow effect when a phrase appears */
-    #hero-text.rotating {
+    /* Highlighted keyword in hero headline */
+    .hero .highlight {
       color: var(--primary);
       text-shadow: 0 0 12px var(--primary), 0 0 20px var(--secondary);
-      transition: color 0.6s, text-shadow 0.6s;
+    }
+
+    /* When rotating, briefly intensify the glow */
+    .hero.rotating .highlight {
+      animation: highlightGlow 0.6s ease forwards;
+    }
+    @keyframes highlightGlow {
+      from { text-shadow: 0 0 4px var(--primary), 0 0 8px var(--secondary); }
+      to { text-shadow: 0 0 12px var(--primary), 0 0 24px var(--secondary); }
     }
 
     /* Demos section */
@@ -267,7 +238,7 @@
     .audio-card audio {
       width: 100%;
       outline: none;
-      filter: invert(100%);
+      /* do not apply colour inversions to native controls; leave as default for better compatibility */
     }
     .audio-card:hover {
       transform: translateY(-6px);
@@ -369,12 +340,7 @@
   <div class="parallax-layer gradient-layer" data-speed="0.02"></div>
   <div class="parallax-layer nebula-layer" data-speed="0.05"></div>
   <canvas id="star-canvas"></canvas>
-  <div class="comet-layer">
-    <!-- multiple comets to create occasional shooting star effects -->
-    <div class="comet" style="animation-delay: 5s; left: 10%;"></div>
-    <div class="comet" style="animation-delay: 12s; left: 40%;"></div>
-    <div class="comet" style="animation-delay: 20s; left: 70%;"></div>
-  </div>
+  <!-- Removed comet layer for stability and performance -->
 
   <!-- Navigation bar -->
   <header class="nav">
@@ -387,8 +353,8 @@
 
   <!-- Hero section with rotating phrases -->
   <section class="hero">
-    <h1 id="hero-text" class="hero-text">
-      Elevating Customer Experience with Conversational AI Agents
+    <h1 id="hero-headline" class="hero-text">
+      <span id="hero-prefix">Elevating</span> <span id="hero-keyword" class="highlight">Customer Experience</span> with Conversational AI Agents
     </h1>
     <div class="hero-line"></div>
   </section>
@@ -459,7 +425,8 @@
     const starCanvas = document.getElementById('star-canvas');
     const starCtx = starCanvas.getContext('2d');
     let stars = [];
-    const starCount = 200;
+    // Reduce star count for better performance across devices
+    const starCount = 150;
 
     function resizeCanvas() {
       starCanvas.width = window.innerWidth;
@@ -496,25 +463,28 @@
     initStars();
     updateStars();
 
-    // Rotating phrases logic for the hero headline
-    const heroTextEl = document.getElementById('hero-text');
-    const phrases = [
-      'Elevating Customer Experience with Conversational AI Agents',
-      'Empowering Salespeople with Conversational AI Agents',
-      'Supporting Employees with Conversational AI Agents'
+    // Rotating phrases logic for the hero headline (prefix + highlighted keyword)
+    const heroPrefixEl = document.getElementById('hero-prefix');
+    const heroKeywordEl = document.getElementById('hero-keyword');
+    const heroSection = document.querySelector('.hero');
+    const phraseSets = [
+      { prefix: 'Elevating', keyword: 'Customer Experience' },
+      { prefix: 'Empowering', keyword: 'Salespeople' },
+      { prefix: 'Supporting', keyword: 'Employees' }
     ];
     let phraseIndex = 0;
-
     function rotatePhrases() {
-      // remove glow class to reset animation
-      heroTextEl.classList.remove('rotating');
+      phraseIndex = (phraseIndex + 1) % phraseSets.length;
+      const { prefix, keyword } = phraseSets[phraseIndex];
+      heroPrefixEl.textContent = prefix;
+      heroKeywordEl.textContent = keyword;
+      // trigger glow animation on highlight
+      heroSection.classList.add('rotating');
       setTimeout(() => {
-        phraseIndex = (phraseIndex + 1) % phrases.length;
-        heroTextEl.textContent = phrases[phraseIndex];
-        heroTextEl.classList.add('rotating');
-      }, 200);
+        heroSection.classList.remove('rotating');
+      }, 600);
     }
-    // Trigger rotation every 5 seconds
+    // rotate every 5 seconds
     setInterval(rotatePhrases, 5000);
 
     // Intersection observer for fade-slide animations
