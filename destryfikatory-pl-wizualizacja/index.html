@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Interaktywna wizualizacja pokazująca, jak destryfikatory wyrównują temperaturę w hali.">
+  <title>Destryfikatory.pl — interaktywna wizualizacja</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="experience is-idle" id="experience">
+    <section class="demo" aria-labelledby="demo-title">
+      <header class="demo-header">
+        <div class="heading-block">
+          <p class="eyebrow">Destryfikacja powietrza</p>
+          <h1 id="demo-title">Sprawdź, jak to działa</h1>
+          <p class="intro">Zobacz, jak destryfikatory sprowadzają nagromadzone pod dachem ciepło do strefy pracy.</p>
+        </div>
+
+        <div class="control-panel">
+          <div class="state-copy" aria-live="polite">
+            <span class="state-kicker">Aktualny stan</span>
+            <strong id="state-label">Ciepło pod dachem</strong>
+          </div>
+          <button class="power-button" id="power-button" type="button" aria-pressed="false">
+            <span class="power-icon" aria-hidden="true"></span>
+            <span id="button-label">Włącz destryfikatory</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="scene-frame">
+        <svg class="warehouse-scene" viewBox="0 0 1600 720" role="img" aria-labelledby="scene-title scene-description" preserveAspectRatio="xMidYMid meet">
+          <title id="scene-title">Animacja działania destryfikatorów</title>
+          <desc id="scene-description">Przekrój dwóch połączonych hal o wysokości dziesięciu i dwudziestu metrów. Po uruchomieniu pięciu wentylatorów ciepłe powietrze spod dachu przemieszcza się w dół i wyrównuje temperaturę w hali.</desc>
+
+          <defs>
+            <clipPath id="hall-clip"><path d="M75 652 V250 H760 V70 H1525 V652 Z"></path></clipPath>
+            <linearGradient id="cold-stratified" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#ef735f"></stop>
+              <stop offset="19%" stop-color="#f29875"></stop>
+              <stop offset="36%" stop-color="#c6d7de"></stop>
+              <stop offset="58%" stop-color="#8fb8ce"></stop>
+              <stop offset="100%" stop-color="#5c91ad"></stop>
+            </linearGradient>
+            <linearGradient id="warm-mixed" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#e9967f"></stop>
+              <stop offset="52%" stop-color="#e6a68f"></stop>
+              <stop offset="100%" stop-color="#dda38e"></stop>
+            </linearGradient>
+            <linearGradient id="roof-glow" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#ffb18a" stop-opacity="0"></stop>
+              <stop offset="50%" stop-color="#ffccb1" stop-opacity=".75"></stop>
+              <stop offset="100%" stop-color="#ffb18a" stop-opacity="0"></stop>
+            </linearGradient>
+            <filter id="soft-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"></feGaussianBlur></filter>
+            <pattern id="floor-grid" width="70" height="34" patternUnits="userSpaceOnUse"><path d="M0 34 L35 0 M35 34 L70 0" fill="none" stroke="#173848" stroke-opacity=".09" stroke-width="1"></path></pattern>
+
+            <g id="fan-shape">
+              <line class="fan-stem" x1="0" y1="0" x2="0" y2="40"></line>
+              <g transform="translate(0 40)">
+                <path class="fan-housing" d="M-40 0 Q-34 -16 0 -18 Q34 -16 40 0 L33 15 Q0 24 -33 15 Z"></path>
+                <ellipse class="fan-guard" cx="0" cy="8" rx="31" ry="10"></ellipse>
+                <g class="fan-rotor">
+                  <path d="M-6 3 C-35 -4 -57 3 -62 13 C-43 18 -21 16 -4 10 Z"></path>
+                  <path d="M6 3 C35 -4 57 3 62 13 C43 18 21 16 4 10 Z"></path>
+                  <circle cx="0" cy="7" r="8"></circle>
+                </g>
+                <g class="air-streams" aria-hidden="true">
+                  <path class="air-stream air-stream-left" d="M-26 30 C-47 92 -40 170 -17 235"></path>
+                  <path class="air-stream air-stream-mid" d="M0 32 C-8 105 7 172 0 249"></path>
+                  <path class="air-stream air-stream-right" d="M26 30 C47 92 40 170 17 235"></path>
+                </g>
+              </g>
+            </g>
+
+            <g id="fan-shape-tall">
+              <line class="fan-stem" x1="0" y1="0" x2="0" y2="62"></line>
+              <g transform="translate(0 62)">
+                <path class="fan-housing" d="M-40 0 Q-34 -16 0 -18 Q34 -16 40 0 L33 15 Q0 24 -33 15 Z"></path>
+                <ellipse class="fan-guard" cx="0" cy="8" rx="31" ry="10"></ellipse>
+                <g class="fan-rotor">
+                  <path d="M-6 3 C-35 -4 -57 3 -62 13 C-43 18 -21 16 -4 10 Z"></path>
+                  <path d="M6 3 C35 -4 57 3 62 13 C43 18 21 16 4 10 Z"></path>
+                  <circle cx="0" cy="7" r="8"></circle>
+                </g>
+                <g class="air-streams" aria-hidden="true">
+                  <path class="air-stream air-stream-left" d="M-26 30 C-47 92 -40 170 -17 235"></path>
+                  <path class="air-stream air-stream-mid" d="M0 32 C-8 105 7 172 0 249"></path>
+                  <path class="air-stream air-stream-right" d="M26 30 C47 92 40 170 17 235"></path>
+                </g>
+              </g>
+            </g>
+
+            <g id="workstation-shape" class="workstation">
+              <rect x="0" y="42" width="126" height="10" rx="5"></rect>
+              <path d="M10 52 L17 99 M116 52 L109 99"></path>
+              <rect class="monitor" x="47" y="0" width="63" height="39" rx="4"></rect>
+              <path d="M78 39 V51 M64 51 H92"></path>
+              <circle class="worker-head" cx="23" cy="17" r="12"></circle>
+              <path class="worker" d="M23 30 L25 69 M24 42 L5 58 M24 43 L44 55 M25 69 L10 96 M25 69 L43 96"></path>
+            </g>
+          </defs>
+
+          <g clip-path="url(#hall-clip)">
+            <rect class="air-layer air-before" x="70" y="65" width="1460" height="592" fill="url(#cold-stratified)"></rect>
+            <rect class="air-layer air-after" x="70" y="65" width="1460" height="592" fill="url(#warm-mixed)"></rect>
+            <rect class="roof-heat" x="70" y="64" width="1460" height="130" fill="url(#roof-glow)" filter="url(#soft-glow)"></rect>
+            <rect x="70" y="616" width="1460" height="42" fill="url(#floor-grid)"></rect>
+            <g class="heat-particles" aria-hidden="true">
+              <circle cx="160" cy="150" r="18" style="--particle-index:0"></circle>
+              <circle cx="265" cy="178" r="11" style="--particle-index:1"></circle>
+              <circle cx="396" cy="133" r="15" style="--particle-index:2"></circle>
+              <circle cx="548" cy="185" r="9" style="--particle-index:3"></circle>
+              <circle cx="670" cy="144" r="14" style="--particle-index:4"></circle>
+              <circle cx="828" cy="135" r="11" style="--particle-index:5"></circle>
+              <circle cx="920" cy="177" r="17" style="--particle-index:6"></circle>
+              <circle cx="1065" cy="121" r="12" style="--particle-index:7"></circle>
+              <circle cx="1198" cy="166" r="16" style="--particle-index:8"></circle>
+              <circle cx="1338" cy="128" r="10" style="--particle-index:9"></circle>
+              <circle cx="1450" cy="182" r="14" style="--particle-index:10"></circle>
+            </g>
+          </g>
+
+          <path class="hall-outline" d="M75 652 V250 H760 V70 H1525 V652 Z"></path>
+          <path class="roof-line" d="M75 250 H760 V70 H1525"></path>
+
+          <g class="height-marker"><path d="M106 270 V626 M98 284 L106 270 L114 284 M98 612 L106 626 L114 612"></path><text x="126" y="455">10 m</text></g>
+          <g class="height-marker"><path d="M1487 90 V626 M1479 104 L1487 90 L1495 104 M1479 612 L1487 626 L1495 612"></path><text x="1440" y="365">20 m</text></g>
+
+          <g class="zone-label zone-label-cool" transform="translate(126 574)"><circle cx="9" cy="9" r="9"></circle><text x="28" y="15">17°C · strefa pracy</text></g>
+          <g class="zone-label zone-label-hot" transform="translate(792 92)"><circle cx="9" cy="9" r="9"></circle><text x="28" y="15">28°C · ciepło pod dachem</text></g>
+          <g class="zone-label zone-label-mixed" transform="translate(792 576)"><circle cx="9" cy="9" r="9"></circle><text x="28" y="15">22°C · równomiernie w całej hali</text></g>
+
+          <g class="destratifier" style="--fan-delay:0s" transform="translate(300 250) scale(.9)"><use href="#fan-shape"></use></g>
+          <g class="destratifier" style="--fan-delay:.08s" transform="translate(575 250) scale(.9)"><use href="#fan-shape"></use></g>
+          <g class="destratifier" style="--fan-delay:.02s" transform="translate(900 70)"><use href="#fan-shape-tall"></use></g>
+          <g class="destratifier" style="--fan-delay:.1s" transform="translate(1160 70)"><use href="#fan-shape-tall"></use></g>
+          <g class="destratifier" style="--fan-delay:.18s" transform="translate(1390 70)"><use href="#fan-shape-tall"></use></g>
+
+          <g class="window" transform="translate(476 390)"><rect width="164" height="106" rx="4"></rect><path d="M82 0 V106 M0 53 H164"></path><path class="window-shine" d="M11 41 L53 10 M35 65 L90 10"></path></g>
+          <g class="window" transform="translate(955 328)"><rect width="172" height="112" rx="4"></rect><path d="M86 0 V112 M0 56 H172"></path><path class="window-shine" d="M13 42 L55 10 M37 68 L96 10"></path></g>
+
+          <g transform="translate(220 551)"><use href="#workstation-shape"></use></g>
+          <g transform="translate(452 551)"><use href="#workstation-shape"></use></g>
+
+          <g class="rack" transform="translate(1370 394)">
+            <path d="M0 0 V216 M132 0 V216 M0 15 H132 M0 78 H132 M0 141 H132 M0 204 H132"></path>
+            <rect x="12" y="31" width="48" height="34" rx="3"></rect><rect x="70" y="27" width="49" height="38" rx="3"></rect><rect x="15" y="92" width="87" height="36" rx="3"></rect><rect x="13" y="155" width="43" height="35" rx="3"></rect><rect x="67" y="151" width="52" height="39" rx="3"></rect>
+          </g>
+
+          <g class="forklift" transform="translate(1096 519)">
+            <path class="forklift-body" d="M0 45 H104 L124 79 H15 Q0 79 0 64 Z"></path>
+            <path class="forklift-cabin" d="M30 45 V3 H80 L103 45 Z"></path>
+            <path class="forklift-glass" d="M42 13 H71 L88 42 H42 Z"></path>
+            <path class="forklift-mast" d="M125 -34 H137 V77 H125 Z M137 63 H190 V70 H137 Z"></path>
+            <circle cx="26" cy="79" r="18"></circle><circle cx="101" cy="79" r="18"></circle><circle class="wheel-hub" cx="26" cy="79" r="7"></circle><circle class="wheel-hub" cx="101" cy="79" r="7"></circle>
+          </g>
+
+          <g class="floor-label" transform="translate(80 681)"><text x="0" y="0">STANOWISKA PRACY</text><line x1="167" y1="-5" x2="650" y2="-5"></line><text x="1095" y="0">MAGAZYN</text></g>
+        </svg>
+
+        <div class="scene-note" aria-live="polite"><span class="note-dot"></span><p id="scene-note">Bez cyrkulacji najcieplejsze powietrze pozostaje wysoko pod dachem.</p></div>
+      </div>
+
+      <div class="benefit-strip" aria-label="Efekty działania destryfikatorów">
+        <div><span class="benefit-number">01</span><p><strong>Odzyskaj ciepło</strong><span>zalegające pod dachem</span></p></div>
+        <div><span class="benefit-number">02</span><p><strong>Wyrównaj temperaturę</strong><span>w całej kubaturze hali</span></p></div>
+        <div><span class="benefit-number">03</span><p><strong>Ogranicz straty</strong><span>bez dodatkowego grzania</span></p></div>
+      </div>
+
+      <aside class="vector-package" aria-labelledby="vector-package-title">
+        <div class="vector-package-copy">
+          <p class="package-kicker">Pakiet wykonawczy</p>
+          <h2 id="vector-package-title">Elementy w wersji wektorowej</h2>
+          <p>Każdy element sceny jest dostępny jako osobny, skalowalny plik SVG.</p>
+        </div>
+        <div class="vector-links">
+          <a href="vectors/destryfikator.svg" download><span>Destryfikator</span><span class="download-mark" aria-hidden="true">↓</span></a>
+          <a href="vectors/stanowisko-pracy.svg" download><span>Stanowisko pracy</span><span class="download-mark" aria-hidden="true">↓</span></a>
+          <a href="vectors/wozek-widlowy.svg" download><span>Wózek widłowy</span><span class="download-mark" aria-hidden="true">↓</span></a>
+          <a href="vectors/regal-magazynowy.svg" download><span>Regał magazynowy</span><span class="download-mark" aria-hidden="true">↓</span></a>
+          <a href="vectors/okno-przemyslowe.svg" download><span>Okno przemysłowe</span><span class="download-mark" aria-hidden="true">↓</span></a>
+          <a href="https://github.com/Gonia25/excyc.github.io/tree/main/destryfikatory-pl-wizualizacja" target="_blank" rel="noopener noreferrer"><span>Kod źródłowy na GitHub</span><span class="download-mark" aria-hidden="true">↗</span></a>
+        </div>
+      </aside>
+    </section>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
