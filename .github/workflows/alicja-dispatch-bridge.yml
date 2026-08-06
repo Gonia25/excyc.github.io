@@ -6,6 +6,7 @@ on:
     branches: [main]
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
@@ -16,10 +17,10 @@ jobs:
   dispatch:
     name: Request trusted main-branch deployment
     if: ${{ startsWith(github.head_ref, 'agent/run-alicja-live-verification') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: macos-15
+    timeout-minutes: 12
     steps:
-      - name: Create repository_dispatch event
+      - name: Create repository_dispatch event and identify resulting runs
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -28,6 +29,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          dispatched_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           response_headers="$(mktemp)"
           status="$(curl --location --silent --show-error \
             --output /tmp/dispatch-response.txt \
@@ -42,4 +44,43 @@ jobs:
           cat "${response_headers}"
           cat /tmp/dispatch-response.txt || true
           test "${status}" = '204'
-          echo "repository_dispatch accepted with HTTP ${status}."
+          echo "repository_dispatch accepted with HTTP ${status} at ${dispatched_at}."
+
+          found=0
+          for attempt in $(seq 1 30); do
+            curl --location --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header 'X-GitHub-Api-Version: 2026-03-10' \
+              "https://api.github.com/repos/${REPOSITORY}/actions/runs?event=repository_dispatch&per_page=30" \
+              > /tmp/repository-dispatch-runs.json
+
+            found="$(DISPATCHED_AT="${dispatched_at}" python3 - <<'PY'
+          import datetime, json, os
+          with open('/tmp/repository-dispatch-runs.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+          cutoff = datetime.datetime.fromisoformat(os.environ['DISPATCHED_AT'].replace('Z', '+00:00'))
+          wanted = {
+              'Alicja Studio production deploy and live proof',
+              'Probe Alicja repository dispatch',
+          }
+          runs = []
+          for run in data.get('workflow_runs', []):
+              created = datetime.datetime.fromisoformat(run['created_at'].replace('Z', '+00:00'))
+              if run.get('event') == 'repository_dispatch' and run.get('name') in wanted and created >= cutoff:
+                  runs.append(run)
+          runs.sort(key=lambda item: item['id'])
+          for run in runs:
+              print(f"DISCOVERED_RUN id={run['id']} name={run['name']} status={run['status']} conclusion={run['conclusion']} created_at={run['created_at']}", file=os.sys.stderr)
+          print(len(runs))
+          PY
+            )"
+            echo "Run discovery attempt ${attempt}: found ${found} matching runs."
+            if [ "${found}" -ge 2 ]; then
+              break
+            fi
+            sleep 2
+          done
+
+          test "${found}" -ge 2
+          echo 'Both the production deployment and independent dispatch-probe runs were created.'
