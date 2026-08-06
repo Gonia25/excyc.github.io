@@ -1,0 +1,1 @@
+Single final monitored Alicja Studio Wnętrz deployment. Allow GitHub's delayed repository-dispatch processing, identify the production run, publish current main, test the real public URL in desktop Chromium and iPad WebKit, and record the final outcome.
