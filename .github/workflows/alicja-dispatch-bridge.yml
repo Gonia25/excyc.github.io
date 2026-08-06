@@ -1,4 +1,4 @@
-name: Dispatch Alicja production deployment
+name: Deploy and prove Alicja through registered Pages workflow
 
 on:
   pull_request:
@@ -6,108 +6,413 @@ on:
     branches: [main]
 
 permissions:
-  actions: read
+  actions: write
   contents: write
+  pages: read
 
 concurrency:
-  group: alicja-dispatch-${{ github.event.pull_request.number }}
+  group: alicja-manual-pages-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
+env:
+  LIVE_URL: https://gonia25.github.io/excyc.github.io/alicja-studio-wnetrz/
+  SOURCE_FILE: alicja-studio-wnetrz/index.html
+  PAGES_WORKFLOW: ritua-pages.yml
+
 jobs:
-  dispatch:
-    name: Request trusted main-branch deployment
+  deploy-and-verify:
+    name: Dispatch registered Pages workflow and test the public site
     if: ${{ startsWith(github.head_ref, 'agent/run-alicja-live-verification') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 60
     steps:
-      - name: Check out trusted main for evidence
+      - name: Check out trusted current main
         uses: actions/checkout@v4
         with:
           ref: main
 
-      - name: Create repository_dispatch event and identify resulting runs
-        id: discover
+      - name: Validate corrected source before publishing
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${SOURCE_FILE}"
+          grep -Fq '<title>Alicja Studio Wnętrz — architektura wnętrz</title>' "${SOURCE_FILE}"
+          grep -Fq 'Wnętrza tworzone' "${SOURCE_FILE}"
+          test "$(grep -o 'class="project reveal"' "${SOURCE_FILE}" | wc -l | tr -d ' ')" = '6'
+          ! grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' "${SOURCE_FILE}"
+          ! grep -Fq 'DecompressionStream' "${SOURCE_FILE}"
+          echo "SOURCE_SHA256=$(sha256sum "${SOURCE_FILE}" | awk '{print $1}')" >> "${GITHUB_ENV}"
+          echo "SOURCE_BYTES=$(wc -c < "${SOURCE_FILE}" | tr -d ' ')" >> "${GITHUB_ENV}"
+
+      - name: Dispatch the established manual Pages workflow
+        id: dispatch
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         shell: bash
         run: |
           set -euo pipefail
           dispatched_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           status="$(curl --location --silent --show-error \
-            --output /tmp/dispatch-response.txt \
+            --output /tmp/pages-dispatch-response.txt \
             --write-out '%{http_code}' \
             --request POST \
             --header 'Accept: application/vnd.github+json' \
             --header "Authorization: Bearer ${GH_TOKEN}" \
             --header 'X-GitHub-Api-Version: 2026-03-10' \
-            "https://api.github.com/repos/${REPOSITORY}/dispatches" \
-            --data "{\"event_type\":\"alicja-production-deploy\",\"client_payload\":{\"source_pr\":${PR_NUMBER},\"source_head_sha\":\"${PR_HEAD_SHA}\"}}")"
-          cat /tmp/dispatch-response.txt || true
+            "https://api.github.com/repos/${REPOSITORY}/actions/workflows/${PAGES_WORKFLOW}/dispatches" \
+            --data '{"ref":"main"}')"
+          cat /tmp/pages-dispatch-response.txt || true
           test "${status}" = '204'
+          echo "dispatched_at=${dispatched_at}" >> "${GITHUB_OUTPUT}"
+          echo "The registered Pages workflow accepted workflow_dispatch with HTTP ${status}."
 
-          production_run=''
-          probe_run=''
-          for attempt in $(seq 1 60); do
+      - name: Discover the exact manual Pages workflow run
+        id: discover
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          DISPATCHED_AT: ${{ steps.dispatch.outputs.dispatched_at }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pages_run=''
+          pages_url=''
+          for attempt in $(seq 1 120); do
             curl --location --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
               --header "Authorization: Bearer ${GH_TOKEN}" \
               --header 'X-GitHub-Api-Version: 2026-03-10' \
-              "https://api.github.com/repos/${REPOSITORY}/actions/runs?event=repository_dispatch&per_page=50" \
-              > /tmp/runs.json
-            read -r production_run probe_run < <(DISPATCHED_AT="${dispatched_at}" python3 - <<'PY'
+              "https://api.github.com/repos/${REPOSITORY}/actions/workflows/${PAGES_WORKFLOW}/runs?event=workflow_dispatch&per_page=30" \
+              > /tmp/pages-workflow-runs.json
+
+            read -r pages_run pages_url < <(python3 - <<'PY'
           import datetime, json, os
-          with open('/tmp/runs.json', encoding='utf-8') as handle:
+          with open('/tmp/pages-workflow-runs.json', encoding='utf-8') as handle:
               data = json.load(handle)
           cutoff = datetime.datetime.fromisoformat(os.environ['DISPATCHED_AT'].replace('Z', '+00:00'))
-          wanted = {
-              'Alicja Studio production deploy and live proof': 'production',
-              'Probe Alicja repository dispatch': 'probe',
-          }
-          selected = {}
+          matches = []
           for run in data.get('workflow_runs', []):
-              key = wanted.get(run.get('name'))
               created = datetime.datetime.fromisoformat(run['created_at'].replace('Z', '+00:00'))
-              if key and run.get('event') == 'repository_dispatch' and created >= cutoff:
-                  selected[key] = max(selected.get(key, {'id': 0}), run, key=lambda item: item['id'])
-          print(selected.get('production', {}).get('id', ''), selected.get('probe', {}).get('id', ''))
+              if run.get('event') == 'workflow_dispatch' and created >= cutoff:
+                  matches.append(run)
+          if matches:
+              run = max(matches, key=lambda item: item['id'])
+              print(run['id'], run.get('html_url', ''))
+          else:
+              print('', '')
           PY
             )
-            echo "Discovery ${attempt}: production=${production_run:-none} probe=${probe_run:-none}"
-            [ -n "${production_run}" ] && [ -n "${probe_run}" ] && break
-            sleep 2
+            echo "Run discovery ${attempt}/120: ${pages_run:-not visible yet}"
+            [ -n "${pages_run}" ] && break
+            sleep 5
           done
-          test -n "${production_run}"
-          test -n "${probe_run}"
-          echo "production_run=${production_run}" >> "${GITHUB_OUTPUT}"
-          echo "probe_run=${probe_run}" >> "${GITHUB_OUTPUT}"
-          echo "dispatched_at=${dispatched_at}" >> "${GITHUB_OUTPUT}"
+          test -n "${pages_run}"
+          echo "pages_run=${pages_run}" >> "${GITHUB_OUTPUT}"
+          echo "pages_url=${pages_url}" >> "${GITHUB_OUTPUT}"
 
-      - name: Record discovered production and probe runs
+      - name: Monitor the Pages deployment through completion
+        id: monitor
         env:
-          PRODUCTION_RUN: ${{ steps.discover.outputs.production_run }}
-          PROBE_RUN: ${{ steps.discover.outputs.probe_run }}
-          DISPATCHED_AT: ${{ steps.discover.outputs.dispatched_at }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PAGES_RUN: ${{ steps.discover.outputs.pages_run }}
         shell: bash
         run: |
           set -euo pipefail
+          status=''
+          conclusion='pending'
+          run_url=''
+          for attempt in $(seq 1 300); do
+            curl --location --silent --show-error \
+              --header 'Accept: application/vnd.github+json' \
+              --header "Authorization: Bearer ${GH_TOKEN}" \
+              --header 'X-GitHub-Api-Version: 2026-03-10' \
+              "https://api.github.com/repos/${REPOSITORY}/actions/runs/${PAGES_RUN}" \
+              > /tmp/pages-run.json
+            read -r status conclusion run_url < <(python3 - <<'PY'
+          import json
+          with open('/tmp/pages-run.json', encoding='utf-8') as handle:
+              run = json.load(handle)
+          print(run.get('status') or '', run.get('conclusion') or 'pending', run.get('html_url') or '')
+          PY
+            )
+            echo "Pages monitor ${attempt}/300: status=${status} conclusion=${conclusion}"
+            [ "${status}" = 'completed' ] && break
+            sleep 5
+          done
+          test "${status}" = 'completed'
+          test "${conclusion}" = 'success'
+          echo "status=${status}" >> "${GITHUB_OUTPUT}"
+          echo "conclusion=${conclusion}" >> "${GITHUB_OUTPUT}"
+          echo "run_url=${run_url}" >> "${GITHUB_OUTPUT}"
+
+      - name: Require the actual public URL to serve the exact corrected source
+        id: http
+        shell: bash
+        run: |
+          set -o pipefail
           mkdir -p deployment-verification
-          cat > deployment-verification/alicja-pr-dispatch.json <<EOF
+          test_url="${LIVE_URL}?manual-pages-proof=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          log='deployment-verification/alicja-manual-pages-http.log'
+          : > "${log}"
+          passed=0
+
+          for attempt in $(seq 1 90); do
+            code="$(curl --location --silent --show-error \
+              --dump-header /tmp/alicja-manual-pages-headers.txt \
+              --output /tmp/alicja-manual-pages-live.html \
+              --write-out '%{http_code}' \
+              --header 'Cache-Control: no-cache, no-store, must-revalidate' \
+              --header 'Pragma: no-cache' \
+              --header 'Expires: 0' \
+              "${test_url}" 2>>"${log}" || true)"
+            live_sha="$(sha256sum /tmp/alicja-manual-pages-live.html 2>/dev/null | awk '{print $1}' || true)"
+            live_bytes="$(wc -c < /tmp/alicja-manual-pages-live.html 2>/dev/null | tr -d ' ' || echo 0)"
+            content_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{gsub(/\r/,""); value=$0} END{sub(/^[^:]+:[[:space:]]*/,"",value); print value}' /tmp/alicja-manual-pages-headers.txt 2>/dev/null || true)"
+            title=0; heading=0; projects=0; fallback=0; loader=0
+            grep -Fq '<title>Alicja Studio Wnętrz — architektura wnętrz</title>' /tmp/alicja-manual-pages-live.html 2>/dev/null && title=1 || true
+            grep -Fq 'Wnętrza tworzone' /tmp/alicja-manual-pages-live.html 2>/dev/null && heading=1 || true
+            projects="$(grep -o 'class="project reveal"' /tmp/alicja-manual-pages-live.html 2>/dev/null | wc -l | tr -d ' ')"
+            grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' /tmp/alicja-manual-pages-live.html 2>/dev/null && fallback=1 || true
+            grep -Fq 'DecompressionStream' /tmp/alicja-manual-pages-live.html 2>/dev/null && loader=1 || true
+
+            printf 'attempt=%s http=%s contentType=%q sourceBytes=%s liveBytes=%s hashMatch=%s title=%s heading=%s projects=%s oldFallback=%s oldLoader=%s\n' \
+              "${attempt}" "${code}" "${content_type}" "${SOURCE_BYTES}" "${live_bytes}" \
+              "$([ "${SOURCE_SHA256}" = "${live_sha}" ] && echo 1 || echo 0)" \
+              "${title}" "${heading}" "${projects}" "${fallback}" "${loader}" | tee -a "${log}"
+
+            if [ "${code}" = '200' ] \
+              && [[ "${content_type}" == text/html* ]] \
+              && [ "${SOURCE_SHA256}" = "${live_sha}" ] \
+              && [ "${title}" = '1' ] \
+              && [ "${heading}" = '1' ] \
+              && [ "${projects}" = '6' ] \
+              && [ "${fallback}" = '0' ] \
+              && [ "${loader}" = '0' ]; then
+              passed=1
+              break
+            fi
+            sleep 10
+          done
+
+          cp /tmp/alicja-manual-pages-live.html deployment-verification/alicja-manual-pages-live.html 2>/dev/null || true
+          cp /tmp/alicja-manual-pages-headers.txt deployment-verification/alicja-manual-pages-headers.txt 2>/dev/null || true
+          test "${passed}" = '1'
+          echo "TEST_URL=${test_url}" >> "${GITHUB_ENV}"
+          echo "LIVE_SHA256=${live_sha}" >> "${GITHUB_ENV}"
+          echo "LIVE_BYTES=${live_bytes}" >> "${GITHUB_ENV}"
+          echo "CONTENT_TYPE=${content_type}" >> "${GITHUB_ENV}"
+
+      - name: Install Chromium and WebKit
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/alicja-manual-pages-browser
+          cd /tmp/alicja-manual-pages-browser
+          npm init -y >/dev/null 2>&1
+          npm install --no-audit --no-fund playwright@latest
+          npx playwright install --with-deps chromium webkit
+
+      - name: Exercise the public site in desktop Chromium and iPad WebKit
+        id: browser
+        shell: bash
+        run: |
+          set -o pipefail
+          cat > /tmp/alicja-manual-pages-browser/verify.cjs <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const { chromium, webkit, devices } = require('playwright');
+
+          const url = process.env.TEST_URL;
+          const evidence = path.resolve(process.env.GITHUB_WORKSPACE, 'deployment-verification');
+          fs.mkdirSync(evidence, { recursive: true });
+
+          const tests = [
+            { name: 'desktop-chromium', engine: chromium, context: { viewport: { width: 1440, height: 1000 }, locale: 'pl-PL' } },
+            { name: 'ipad-webkit', engine: webkit, context: { ...devices['iPad Pro 11'], locale: 'pl-PL' } }
+          ];
+
+          async function run(test) {
+            const browser = await test.engine.launch({ headless: true });
+            const context = await browser.newContext(test.context);
+            const page = await context.newPage();
+            const consoleErrors = [];
+            const pageErrors = [];
+            const failedRequests = [];
+            page.on('console', msg => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+            page.on('pageerror', error => pageErrors.push(String(error)));
+            page.on('requestfailed', request => failedRequests.push({ url: request.url(), error: request.failure()?.errorText || 'unknown' }));
+
+            const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
+            if (!response || response.status() !== 200) throw new Error(`${test.name}: HTTP ${response?.status()}`);
+            await page.waitForSelector('.hero h1', { state: 'visible', timeout: 120000 });
+            await page.waitForTimeout(1800);
+
+            const initial = await page.evaluate(() => ({
+              title: document.title,
+              heading: document.querySelector('.hero h1')?.innerText.trim() || '',
+              projectCount: document.querySelectorAll('.project').length,
+              fallbackPresent: document.body.innerText.includes('Ta przeglądarka nie obsługuje prezentacji'),
+              loaderPresent: document.documentElement.innerHTML.includes('DecompressionStream'),
+              bodyWidth: document.body.scrollWidth,
+              viewportWidth: window.innerWidth,
+              bodyTextLength: document.body.innerText.length
+            }));
+
+            if (initial.title !== 'Alicja Studio Wnętrz — architektura wnętrz') throw new Error(`${test.name}: wrong title`);
+            if (!initial.heading.includes('Wnętrza tworzone')) throw new Error(`${test.name}: intended hero missing`);
+            if (initial.projectCount !== 6) throw new Error(`${test.name}: expected 6 projects, got ${initial.projectCount}`);
+            if (initial.fallbackPresent || initial.loaderPresent) throw new Error(`${test.name}: obsolete loader/fallback remains`);
+            if (initial.bodyWidth > initial.viewportWidth + 2) throw new Error(`${test.name}: horizontal overflow ${initial.bodyWidth}/${initial.viewportWidth}`);
+            if (initial.bodyTextLength < 1500) throw new Error(`${test.name}: incomplete page text`);
+
+            await page.waitForTimeout(500);
+            if (await page.locator('#cookies').isVisible()) await page.locator('#essential').click();
+
+            await page.locator('.filter[data-filter="domy"]').click();
+            await page.waitForTimeout(250);
+            const visibleHouseProjects = await page.locator('.project:not(.hidden)').count();
+            if (visibleHouseProjects !== 2) throw new Error(`${test.name}: portfolio filter showed ${visibleHouseProjects}, expected 2`);
+            await page.locator('.filter[data-filter="all"]').click();
+
+            await page.locator('.project-open').first().click();
+            await page.waitForSelector('#lightbox.open', { state: 'visible', timeout: 10000 });
+            const lightboxSource = await page.locator('#lightbox-image').getAttribute('src');
+            if (!lightboxSource) throw new Error(`${test.name}: lightbox image missing`);
+            await page.locator('#close').click();
+            await page.waitForSelector('#lightbox', { state: 'hidden', timeout: 10000 });
+
+            let mobileMenuTested = false;
+            const menu = page.locator('#menu');
+            if (await menu.isVisible()) {
+              mobileMenuTested = true;
+              await menu.click();
+              if ((await menu.getAttribute('aria-expanded')) !== 'true') throw new Error(`${test.name}: menu aria state failed`);
+              if (!(await page.locator('#nav').evaluate(node => node.classList.contains('open')))) throw new Error(`${test.name}: mobile menu did not open`);
+              await menu.click();
+            }
+
+            await page.locator('#kontakt').scrollIntoViewIfNeeded();
+            await page.locator('#contact-form button[type="submit"]').click();
+            const validationMessage = await page.locator('#status').innerText();
+            if (!validationMessage.includes('Uzupełnij wymagane pola')) throw new Error(`${test.name}: empty-form validation failed`);
+
+            await page.locator('input[name="name"]').fill('Test użytkownika');
+            await page.locator('input[name="email"]').fill('test@example.com');
+            await page.locator('select[name="type"]').selectOption({ label: 'Mieszkanie' });
+            await page.locator('textarea[name="message"]').fill('Test działania formularza demonstracyjnego.');
+            await page.locator('.consent input').check();
+            await page.locator('#contact-form button[type="submit"]').click();
+            const successMessage = await page.locator('#status').innerText();
+            if (!successMessage.includes('Formularz działa prawidłowo')) throw new Error(`${test.name}: completed-form state failed`);
+
+            await page.locator('#start').scrollIntoViewIfNeeded();
+            const screenshot = `alicja-manual-pages-${test.name}.jpg`;
+            await page.screenshot({ path: path.join(evidence, screenshot), fullPage: true, type: 'jpeg', quality: 80 });
+            await context.close();
+            await browser.close();
+
+            return {
+              browser: test.name,
+              passed: true,
+              responseStatus: response.status(),
+              ...initial,
+              visibleHouseProjects,
+              lightboxTested: true,
+              mobileMenuTested,
+              validationMessage,
+              successMessage,
+              consoleErrors,
+              pageErrors,
+              failedRequests,
+              screenshot
+            };
+          }
+
+          (async () => {
+            const browsers = [];
+            for (const test of tests) browsers.push(await run(test));
+            const report = {
+              passed: true,
+              verifiedAt: new Date().toISOString(),
+              canonicalUrl: process.env.LIVE_URL,
+              testedUrl: url,
+              sourceSha256: process.env.SOURCE_SHA256,
+              liveSha256: process.env.LIVE_SHA256,
+              sourceBytes: Number(process.env.SOURCE_BYTES),
+              liveBytes: Number(process.env.LIVE_BYTES),
+              contentType: process.env.CONTENT_TYPE,
+              dispatcherRunId: process.env.GITHUB_RUN_ID,
+              pagesRunId: process.env.PAGES_RUN_ID,
+              pagesRunUrl: process.env.PAGES_RUN_URL,
+              browsers
+            };
+            fs.writeFileSync(path.join(evidence, 'alicja-manual-pages-live.json'), JSON.stringify(report, null, 2) + '\n');
+            console.log(JSON.stringify(report, null, 2));
+          })().catch(error => {
+            fs.writeFileSync(path.join(evidence, 'alicja-manual-pages-browser-failure.txt'), `${error.stack || error}\n`);
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+          PAGES_RUN_ID='${{ steps.discover.outputs.pages_run }}' \
+          PAGES_RUN_URL='${{ steps.monitor.outputs.run_url }}' \
+          node /tmp/alicja-manual-pages-browser/verify.cjs 2>&1 | tee deployment-verification/alicja-manual-pages-browser.log
+
+      - name: Write final verified outcome
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=failed
+          if [ "${{ steps.monitor.outcome }}" = 'success' ] \
+            && [ "${{ steps.http.outcome }}" = 'success' ] \
+            && [ "${{ steps.browser.outcome }}" = 'success' ] \
+            && [ -f deployment-verification/alicja-manual-pages-live.json ]; then
+            state=passed
+          fi
+          mkdir -p deployment-verification
+          cat > deployment-verification/alicja-manual-pages-outcome.json <<EOF
           {
-            "state": "accepted",
+            "state": "${state}",
+            "dispatcherWorkflowRunId": "${GITHUB_RUN_ID}",
+            "dispatcherWorkflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
             "sourcePullRequest": "${{ github.event.pull_request.number }}",
             "sourceHeadSha": "${{ github.event.pull_request.head.sha }}",
-            "dispatcherWorkflowRunId": "${GITHUB_RUN_ID}",
-            "productionRunId": "${PRODUCTION_RUN}",
-            "probeRunId": "${PROBE_RUN}",
-            "dispatchedAt": "${DISPATCHED_AT}"
+            "pagesRunId": "${{ steps.discover.outputs.pages_run }}",
+            "pagesRunUrl": "${{ steps.monitor.outputs.run_url }}",
+            "pagesConclusion": "${{ steps.monitor.outputs.conclusion }}",
+            "httpOutcome": "${{ steps.http.outcome }}",
+            "browserOutcome": "${{ steps.browser.outcome }}",
+            "finishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
-          git config user.name 'Alicja PR Dispatch'
+
+      - name: Upload full proof package
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: alicja-manual-pages-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: deployment-verification/alicja-manual-pages-*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit the verification result to main
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Alicja Manual Pages Verification'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add deployment-verification/alicja-pr-dispatch.json
-          git commit -m 'Record Alicja PR production dispatch [skip ci]'
+          git add deployment-verification/alicja-manual-pages-*
+          if git diff --cached --quiet; then
+            echo 'No manual Pages verification evidence changed.'
+            exit 0
+          fi
+          state="$(python3 -c "import json; print(json.load(open('deployment-verification/alicja-manual-pages-outcome.json'))['state'])")"
+          git commit -m "Record Alicja manual Pages verification: ${state} [skip ci]"
           git pull --rebase origin main
           git push origin HEAD:main
