@@ -17,10 +17,16 @@ jobs:
   dispatch:
     name: Request trusted main-branch deployment
     if: ${{ startsWith(github.head_ref, 'agent/run-alicja-live-verification') }}
-    runs-on: macos-15
-    timeout-minutes: 12
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
+      - name: Check out trusted main for evidence
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
       - name: Create repository_dispatch event and identify resulting runs
+        id: discover
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -30,10 +36,8 @@ jobs:
         run: |
           set -euo pipefail
           dispatched_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          response_headers="$(mktemp)"
           status="$(curl --location --silent --show-error \
             --output /tmp/dispatch-response.txt \
-            --dump-header "${response_headers}" \
             --write-out '%{http_code}' \
             --request POST \
             --header 'Accept: application/vnd.github+json' \
@@ -41,46 +45,69 @@ jobs:
             --header 'X-GitHub-Api-Version: 2026-03-10' \
             "https://api.github.com/repos/${REPOSITORY}/dispatches" \
             --data "{\"event_type\":\"alicja-production-deploy\",\"client_payload\":{\"source_pr\":${PR_NUMBER},\"source_head_sha\":\"${PR_HEAD_SHA}\"}}")"
-          cat "${response_headers}"
           cat /tmp/dispatch-response.txt || true
           test "${status}" = '204'
-          echo "repository_dispatch accepted with HTTP ${status} at ${dispatched_at}."
 
-          found=0
-          for attempt in $(seq 1 30); do
+          production_run=''
+          probe_run=''
+          for attempt in $(seq 1 60); do
             curl --location --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
               --header "Authorization: Bearer ${GH_TOKEN}" \
               --header 'X-GitHub-Api-Version: 2026-03-10' \
-              "https://api.github.com/repos/${REPOSITORY}/actions/runs?event=repository_dispatch&per_page=30" \
-              > /tmp/repository-dispatch-runs.json
-
-            found="$(DISPATCHED_AT="${dispatched_at}" python3 - <<'PY'
+              "https://api.github.com/repos/${REPOSITORY}/actions/runs?event=repository_dispatch&per_page=50" \
+              > /tmp/runs.json
+            read -r production_run probe_run < <(DISPATCHED_AT="${dispatched_at}" python3 - <<'PY'
           import datetime, json, os
-          with open('/tmp/repository-dispatch-runs.json', encoding='utf-8') as handle:
+          with open('/tmp/runs.json', encoding='utf-8') as handle:
               data = json.load(handle)
           cutoff = datetime.datetime.fromisoformat(os.environ['DISPATCHED_AT'].replace('Z', '+00:00'))
           wanted = {
-              'Alicja Studio production deploy and live proof',
-              'Probe Alicja repository dispatch',
+              'Alicja Studio production deploy and live proof': 'production',
+              'Probe Alicja repository dispatch': 'probe',
           }
-          runs = []
+          selected = {}
           for run in data.get('workflow_runs', []):
+              key = wanted.get(run.get('name'))
               created = datetime.datetime.fromisoformat(run['created_at'].replace('Z', '+00:00'))
-              if run.get('event') == 'repository_dispatch' and run.get('name') in wanted and created >= cutoff:
-                  runs.append(run)
-          runs.sort(key=lambda item: item['id'])
-          for run in runs:
-              print(f"DISCOVERED_RUN id={run['id']} name={run['name']} status={run['status']} conclusion={run['conclusion']} created_at={run['created_at']}", file=os.sys.stderr)
-          print(len(runs))
+              if key and run.get('event') == 'repository_dispatch' and created >= cutoff:
+                  selected[key] = max(selected.get(key, {'id': 0}), run, key=lambda item: item['id'])
+          print(selected.get('production', {}).get('id', ''), selected.get('probe', {}).get('id', ''))
           PY
-            )"
-            echo "Run discovery attempt ${attempt}: found ${found} matching runs."
-            if [ "${found}" -ge 2 ]; then
-              break
-            fi
+            )
+            echo "Discovery ${attempt}: production=${production_run:-none} probe=${probe_run:-none}"
+            [ -n "${production_run}" ] && [ -n "${probe_run}" ] && break
             sleep 2
           done
+          test -n "${production_run}"
+          test -n "${probe_run}"
+          echo "production_run=${production_run}" >> "${GITHUB_OUTPUT}"
+          echo "probe_run=${probe_run}" >> "${GITHUB_OUTPUT}"
+          echo "dispatched_at=${dispatched_at}" >> "${GITHUB_OUTPUT}"
 
-          test "${found}" -ge 2
-          echo 'Both the production deployment and independent dispatch-probe runs were created.'
+      - name: Record discovered production and probe runs
+        env:
+          PRODUCTION_RUN: ${{ steps.discover.outputs.production_run }}
+          PROBE_RUN: ${{ steps.discover.outputs.probe_run }}
+          DISPATCHED_AT: ${{ steps.discover.outputs.dispatched_at }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deployment-verification
+          cat > deployment-verification/alicja-pr-dispatch.json <<EOF
+          {
+            "state": "accepted",
+            "sourcePullRequest": "${{ github.event.pull_request.number }}",
+            "sourceHeadSha": "${{ github.event.pull_request.head.sha }}",
+            "dispatcherWorkflowRunId": "${GITHUB_RUN_ID}",
+            "productionRunId": "${PRODUCTION_RUN}",
+            "probeRunId": "${PROBE_RUN}",
+            "dispatchedAt": "${DISPATCHED_AT}"
+          }
+          EOF
+          git config user.name 'Alicja PR Dispatch'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deployment-verification/alicja-pr-dispatch.json
+          git commit -m 'Record Alicja PR production dispatch [skip ci]'
+          git pull --rebase origin main
+          git push origin HEAD:main
