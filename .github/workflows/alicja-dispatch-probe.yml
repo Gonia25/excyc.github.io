@@ -10,11 +10,11 @@ permissions:
 jobs:
   probe:
     name: Record repository-dispatch delivery
-    runs-on: macos-15
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Check out trusted main
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           ref: main
 
