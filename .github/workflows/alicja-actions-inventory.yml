@@ -1,0 +1,62 @@
+name: Inventory Alicja repository-dispatch runs
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: alicja-actions-inventory-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  inventory:
+    name: Print exact recent repository-dispatch runs
+    if: ${{ startsWith(github.head_ref, 'agent/run-alicja-live-verification') }}
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - name: Query and print unfiltered dispatch-run inventory
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --location --silent --show-error \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${REPOSITORY}/actions/runs?event=repository_dispatch&per_page=100" \
+            > /tmp/repository-dispatch-inventory.json
+
+          python3 - <<'PY'
+          import json
+          with open('/tmp/repository-dispatch-inventory.json', encoding='utf-8') as handle:
+              data = json.load(handle)
+          print('TOTAL_REPOSITORY_DISPATCH_RUNS', data.get('total_count'))
+          runs = data.get('workflow_runs', [])
+          print('RETURNED_RUNS', len(runs))
+          for run in runs:
+              print(
+                  'RUN',
+                  f"id={run.get('id')}",
+                  f"name={run.get('name')!r}",
+                  f"display_title={run.get('display_title')!r}",
+                  f"workflow_id={run.get('workflow_id')}",
+                  f"status={run.get('status')}",
+                  f"conclusion={run.get('conclusion')}",
+                  f"created_at={run.get('created_at')}",
+                  f"updated_at={run.get('updated_at')}",
+                  f"head_sha={run.get('head_sha')}",
+                  f"run_number={run.get('run_number')}",
+                  f"run_attempt={run.get('run_attempt')}",
+                  f"html_url={run.get('html_url')}",
+              )
+          if not runs:
+              raise SystemExit('No repository_dispatch runs were returned by GitHub.')
+          PY
