@@ -1,2 +1,2 @@
-:HL["/Gonia25/excyc.github.io/main/systemy-kolejowe-2027/_next/static/chunks/13tgppbw~-_g6.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"Y3cJVMP1gI4PEOPmm9kuA"}
+:HL["https://raw.githack.com/Gonia25/excyc.github.io/main/systemy-kolejowe-2027/_next/static/chunks/13tgppbw~-_g6.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":16,"slots":{"children":{"name":"/_not-found","param":null,"prefetchHints":0,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":0,"slots":null}}}}},"staleTime":300,"buildId":"5lLCfaO9PCjkZHD4b3lO5"}
