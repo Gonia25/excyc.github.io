@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 760" role="img" aria-labelledby="title desc">
+  <title id="title">Przedszkolak 4-7 lat - widok z tyłu</title>
+  <desc id="desc">Neutralna edukacyjna sylwetka przedszkolaka od tyłu, zachowująca dojrzałe proporcje ciała przy czytelnych cechach dziecka.</desc>
+  <g fill="#A3CFDB">
+    <ellipse cx="145" cy="96" rx="10" ry="18"/>
+    <ellipse cx="255" cy="96" rx="10" ry="18"/>
+    <path d="M200 42c-37 0-55 23-55 55 0 36 20 60 55 60s55-24 55-60c0-32-18-55-55-55Z"/>
+    <path d="M175 130h50v86h-50Z"/>
+    <path d="M169 168c-34 6-54 22-62 49-9 32-2 63 2 99 4 40 7 71 16 92 11 25 32 35 75 35s64-10 75-35c9-21 12-52 16-92 4-36 11-67 2-99-8-27-28-43-62-49-7 14-17 21-31 21s-24-7-31-21Z"/>
+    <path d="M143 184c-25 7-39 28-44 58L84 348c-4 29-4 57 2 79l-6 21c-3 9 0 16 6 16 5 0 7-5 9-12-1 10 2 17 7 17s7-6 8-15c0 9 3 15 8 15s6-7 6-16c2 7 5 12 10 11 7-2 5-13 3-26l7-26c7-30 12-63 17-96l10-66c4-25 1-54-18-66Z"/>
+    <path d="M143 184c-25 7-39 28-44 58L84 348c-4 29-4 57 2 79l-6 21c-3 9 0 16 6 16 5 0 7-5 9-12-1 10 2 17 7 17s7-6 8-15c0 9 3 15 8 15s6-7 6-16c2 7 5 12 10 11 7-2 5-13 3-26l7-26c7-30 12-63 17-96l10-66c4-25 1-54-18-66Z" transform="translate(400 0) scale(-1 1)"/>
+    <path d="M127 396c2 34 4 61 2 90-2 43-1 91 4 133 3 25 7 51 7 76-13 4-25 10-30 18-6 9 4 15 20 15h28c13 0 18-7 17-20l-3-36c-2-30 2-63 8-96 6-34 13-76 20-124l-73-56Z"/>
+    <path d="M127 396c2 34 4 61 2 90-2 43-1 91 4 133 3 25 7 51 7 76-13 4-25 10-30 18-6 9 4 15 20 15h28c13 0 18-7 17-20l-3-36c-2-30 2-63 8-96 6-34 13-76 20-124l-73-56Z" transform="translate(400 0) scale(-1 1)"/>
+  </g>
+  <g fill="none" stroke="#79B5C5" stroke-width="2" stroke-linecap="round" opacity=".7">
+    <path d="M157 237c12 11 25 16 40 17M243 237c-12 11-25 16-40 17"/>
+    <path d="M200 252v93"/>
+    <path d="M151 411c17 2 35 9 49 25 14-16 32-23 49-25M200 436v24"/>
+    <path d="M137 573c8 4 16 4 24 0M239 573c8 4 16 4 24 0"/>
+    <path d="M139 697c10 3 21 3 32 0M229 697c11 3 22 3 32 0"/>
+  </g>
+</svg>
