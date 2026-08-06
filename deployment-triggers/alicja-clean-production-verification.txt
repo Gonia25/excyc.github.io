@@ -1,3 +1,4 @@
 Alicja Studio Wnętrz clean production deployment trigger.
 Requested: 2026-08-06
-Purpose: deploy corrected direct HTML from the current main branch after removing competing automatic Pages runs, then prove the public URL in Chromium and iPad WebKit.
+Attempt: 2 on standard runner
+Purpose: deploy corrected direct HTML from current main after removing competing automatic Pages runs, then prove the public URL in Chromium and iPad WebKit.
