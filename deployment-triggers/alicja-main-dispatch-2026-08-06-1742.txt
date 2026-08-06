@@ -1,0 +1,1 @@
+Observable final Alicja Studio Wnętrz deployment. Dispatch the trusted production workflow, identify its run ID, publish current direct HTML, test the real public URL in Chromium and iPad WebKit, and commit the monitored result.
