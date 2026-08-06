@@ -1,0 +1,2 @@
+Trigger the registered manual Pages deployment, monitor its exact workflow run, then prove the public Alicja Studio site in desktop Chromium and iPad WebKit.
+Created: 2026-08-06T18:18:00Z
