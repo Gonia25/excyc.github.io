@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#edf7f9">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Sylwetki pediatryczne | BD Polska</title>
+  <meta name="description" content="Kompletny zestaw wektorowych sylwetek dziecka dla trzech etapów rozwoju - przód i tył.">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="BD Polska - początek strony"><span class="brand-mark" aria-hidden="true">BD</span><span><strong>BD Polska</strong><small>Materiały edukacyjne</small></span></a>
+    <a class="header-link pack-download" href="#">Pobierz komplet <span aria-hidden="true">↓</span></a>
+  </header>
+
+  <section class="hero" id="top">
+    <div class="hero-copy">
+      <p class="eyebrow"><span></span> Pediatria · rozwój dziecka</p>
+      <h1>Sylwetki, które pokazują zmianę proporcji.</h1>
+      <p class="hero-lead">Spójny zestaw sześciu neutralnych grafik wektorowych: trzy etapy rozwoju, każdy przedstawiony od przodu i od tyłu.</p>
+      <div class="hero-actions"><a class="button primary" href="#viewer">Zobacz wszystkie sylwetki</a><a class="button secondary pack-download" href="#">Pobierz komplet SVG</a></div>
+      <dl class="hero-stats" aria-label="Zakres projektu"><div><dt>6</dt><dd>sylwetek</dd></div><div><dt>3</dt><dd>grupy wiekowe</dd></div><div><dt>2</dt><dd>widoki każdej postaci</dd></div></dl>
+    </div>
+    <div class="hero-art" aria-label="Porównanie trzech etapów rozwoju">
+      <div class="age-line" aria-hidden="true"><span></span><span></span><span></span></div>
+      <button class="hero-figure active" data-stage="0" aria-label="Pokaż etap: Niemowlę, 0-12 mies."><img src="vectors/01-niemowle-przod.svg" alt=""><span>0-12 mies.</span></button>
+      <button class="hero-figure" data-stage="1" aria-label="Pokaż etap: Małe dziecko, 1-3 lata"><img src="vectors/03-male-dziecko-przod.svg" alt=""><span>1-3 lata</span></button>
+      <button class="hero-figure" data-stage="2" aria-label="Pokaż etap: Przedszkolak, 4-7 lat"><img src="vectors/05-przedszkolak-przod.svg" alt=""><span>4-7 lat</span></button>
+      <p class="art-caption">Jedna linia stylistyczna. Czytelna różnica proporcji.</p>
+    </div>
+  </section>
+
+  <section class="viewer-section" id="viewer">
+    <div class="section-heading"><div><p class="eyebrow"><span></span> Zestaw projektowy</p><h2>Każdy etap, oba widoki.</h2></div><p>Wybierz grupę wiekową i przełącz widok. Każdy plik ma przezroczyste tło, edytowalny kolor i ten sam obszar roboczy.</p></div>
+    <div class="viewer-shell">
+      <div class="viewer-controls">
+        <div class="stage-tabs" role="tablist" aria-label="Grupa wiekowa">
+          <button class="selected" data-stage="0" role="tab" aria-selected="true"><span>Niemowlę</span><small>0-12 mies.</small></button>
+          <button data-stage="1" role="tab" aria-selected="false"><span>Małe dziecko</span><small>1-3 lata</small></button>
+          <button data-stage="2" role="tab" aria-selected="false"><span>Przedszkolak</span><small>4-7 lat</small></button>
+        </div>
+        <div class="view-switch" role="group" aria-label="Widok sylwetki"><button class="selected" data-view="front">Przód</button><button data-view="back">Tył</button></div>
+      </div>
+      <div class="viewer-content">
+        <div class="figure-stage"><div class="measure-line"><span>Wysokość sylwetki</span></div><img id="active-figure" src="vectors/01-niemowle-przod.svg" alt="Niemowlę, 0-12 mies. - widok z przodu"><span class="view-label" id="view-label">Widok z przodu</span></div>
+        <aside class="figure-notes"><p class="index" id="stage-index">01 / 03</p><h3 id="stage-name">Niemowlę</h3><p class="range" id="stage-range">0-12 mies.</p><p class="summary" id="stage-summary">Duża głowa, krótka szyja i kończyny, zaokrąglony tułów.</p><div class="ratio-card"><span>Głowa : ciało</span><strong id="stage-ratio">1 : 4</strong></div><ul><li>Neutralny, edukacyjny charakter</li><li>Spójna paleta #A3CFDB</li><li>Pełna skalowalność bez utraty jakości</li></ul><a class="download-single" id="single-download" href="vectors/01-niemowle-przod.svg" download>Pobierz wybrany SVG <span aria-hidden="true">↓</span></a></aside>
+      </div>
+    </div>
+  </section>
+
+  <section class="comparison-section">
+    <div class="section-heading compact"><div><p class="eyebrow"><span></span> Porównanie</p><h2>Rozwój widoczny od razu.</h2></div><div class="view-switch light" role="group" aria-label="Widok porównawczy"><button class="selected" data-view="front">Przód</button><button data-view="back">Tył</button></div></div>
+    <div class="comparison-grid">
+      <article><div class="comparison-image"><img data-comparison="0" src="vectors/01-niemowle-przod.svg" alt="Niemowlę - przód"></div><div class="comparison-copy"><span>01</span><div><h3>Niemowlę</h3><p>0-12 mies.</p></div><strong>1 : 4</strong></div></article>
+      <article><div class="comparison-image"><img data-comparison="1" src="vectors/03-male-dziecko-przod.svg" alt="Małe dziecko - przód"></div><div class="comparison-copy"><span>02</span><div><h3>Małe dziecko</h3><p>1-3 lata</p></div><strong>1 : 5</strong></div></article>
+      <article><div class="comparison-image"><img data-comparison="2" src="vectors/05-przedszkolak-przod.svg" alt="Przedszkolak - przód"></div><div class="comparison-copy"><span>03</span><div><h3>Przedszkolak</h3><p>4-7 lat</p></div><strong>1 : 6</strong></div></article>
+    </div>
+  </section>
+
+  <section class="delivery-section"><div><p class="eyebrow"><span></span> Gotowe do użycia</p><h2>Kompletny pakiet wektorowy.</h2><p>Pliki przygotowane do materiałów edukacyjnych, prezentacji i publikacji cyfrowych. Każda sylwetka jest osobnym, nazwanym plikiem SVG.</p></div><div class="delivery-card"><div><span>SVG</span><p>6 osobnych plików<br>edytowalnych</p></div><div><span>PRZÓD</span><p>3 grupy wiekowe<br>w jednym stylu</p></div><div><span>TYŁ</span><p>3 spójne widoki<br>uzupełniające</p></div><a class="button primary wide pack-download" href="#">Pobierz kompletny pakiet <span aria-hidden="true">↓</span></a></div></section>
+
+  <footer><div class="brand footer-brand"><span class="brand-mark" aria-hidden="true">BD</span><span><strong>BD Polska</strong><small>Sylwetki pediatryczne</small></span></div><p>6 sylwetek · 3 grupy wiekowe · przód i tył</p></footer>
+</main>
+<script>
+(function(){
+  const stages=[
+    {name:'Niemowlę',range:'0-12 mies.',ratio:'1 : 4',summary:'Duża głowa, krótka szyja i kończyny, zaokrąglony tułów.',front:'vectors/01-niemowle-przod.svg',back:'vectors/02-niemowle-tyl.svg'},
+    {name:'Małe dziecko',range:'1-3 lata',ratio:'1 : 5',summary:'Krępa sylwetka, łagodnie zarysowany brzuch i wydłużone nogi.',front:'vectors/03-male-dziecko-przod.svg',back:'vectors/04-male-dziecko-tyl.svg'},
+    {name:'Przedszkolak',range:'4-7 lat',ratio:'1 : 6',summary:'Smuklejszy tułów, dłuższe kończyny i dojrzalsze proporcje.',front:'vectors/05-przedszkolak-przod.svg',back:'vectors/06-przedszkolak-tyl.svg'}
+  ];
+  let stage=0,view='front';
+  const q=(s)=>document.querySelector(s),qa=(s)=>Array.from(document.querySelectorAll(s));
+  function render(){
+    const item=stages[stage],src=item[view],viewPl=view==='front'?'z przodu':'z tyłu';
+    q('#active-figure').src=src;q('#active-figure').alt=item.name+', '+item.range+' - widok '+viewPl;q('#view-label').textContent='Widok '+viewPl;
+    q('#stage-index').textContent='0'+(stage+1)+' / 03';q('#stage-name').textContent=item.name;q('#stage-range').textContent=item.range;q('#stage-summary').textContent=item.summary;q('#stage-ratio').textContent=item.ratio;q('#single-download').href=src;
+    qa('[data-stage]').forEach((b)=>{const on=Number(b.dataset.stage)===stage;b.classList.toggle('selected',on);b.classList.toggle('active',on);if(b.getAttribute('role')==='tab')b.setAttribute('aria-selected',String(on));});
+    qa('[data-view]').forEach((b)=>b.classList.toggle('selected',b.dataset.view===view));
+    qa('[data-comparison]').forEach((img)=>{const i=Number(img.dataset.comparison);img.src=stages[i][view];img.alt=stages[i].name+' - '+(view==='front'?'przód':'tył');});
+  }
+  qa('[data-stage]').forEach((b)=>b.addEventListener('click',()=>{stage=Number(b.dataset.stage);render();if(b.classList.contains('hero-figure'))document.querySelector('#viewer').scrollIntoView({behavior:'smooth'});}));
+  qa('[data-view]').forEach((b)=>b.addEventListener('click',()=>{view=b.dataset.view;render();}));
+  const b64='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';
+  const bytes=Uint8Array.from(atob(b64),(c)=>c.charCodeAt(0));
+  const packUrl=URL.createObjectURL(new Blob([bytes],{type:'application/zip'}));
+  qa('.pack-download').forEach((a)=>{a.href=packUrl;a.download='BD-Polska-sylwetki-pediatryczne-SVG.zip';});
+  render();
+})();
+</script>
+</body>
+</html>
