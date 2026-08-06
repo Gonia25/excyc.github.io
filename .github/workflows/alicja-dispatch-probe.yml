@@ -1,0 +1,44 @@
+name: Probe Alicja repository dispatch
+
+on:
+  repository_dispatch:
+    types: [alicja-production-deploy]
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    name: Record repository-dispatch delivery
+    runs-on: macos-15
+    timeout-minutes: 10
+    steps:
+      - name: Check out trusted main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Record dispatch event and run identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deployment-verification
+          cat > deployment-verification/alicja-dispatch-probe.json <<EOF
+          {
+            "state": "delivered",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "event": "${GITHUB_EVENT_NAME}",
+            "eventAction": "${GITHUB_ACTION}",
+            "trustedMainCommit": "$(git rev-parse HEAD)",
+            "sourcePullRequest": "${{ github.event.client_payload.source_pr || 'unknown' }}",
+            "sourceHeadSha": "${{ github.event.client_payload.source_head_sha || 'unknown' }}",
+            "recordedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          git config user.name 'Alicja Dispatch Probe'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deployment-verification/alicja-dispatch-probe.json
+          git commit -m 'Record Alicja repository-dispatch delivery [skip ci]'
+          git pull --rebase origin main
+          git push origin HEAD:main
