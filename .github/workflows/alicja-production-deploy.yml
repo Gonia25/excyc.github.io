@@ -4,6 +4,9 @@ on:
   repository_dispatch:
     types: [alicja-production-deploy]
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Alicja final deployment launcher"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -19,19 +22,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: Publish corrected trusted source
+  deploy-and-prove:
+    name: Publish corrected site and prove the public result
+    if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'agent/alicja-final-launch')) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 55
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.pages.outputs.page_url }}
     steps:
       - name: Check out current trusted main
         uses: actions/checkout@v4
         with:
           ref: main
-          persist-credentials: false
 
       - name: Validate direct browser-compatible source
         shell: bash
@@ -44,56 +47,57 @@ jobs:
           ! grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' "${SOURCE_FILE}"
           ! grep -Fq 'DecompressionStream' "${SOURCE_FILE}"
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
-
-      - name: Upload complete static repository
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: .
-
-      - name: Deploy Pages artifact
-        id: deployment
-        uses: actions/deploy-pages@v4
-        with:
-          timeout: 3600000
-          error_count: 30
-          reporting_interval: 10000
-
-  verify:
-    name: Prove public site in Chromium and iPad WebKit
-    if: ${{ always() }}
-    needs: deploy
-    runs-on: ubuntu-latest
-    timeout-minutes: 35
-    steps:
-      - name: Check out trusted main for evidence
-        uses: actions/checkout@v4
-        with:
-          ref: main
-
-      - name: Record run identity
+      - name: Record the exact production run ID on main
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p deployment-verification
-          cat > deployment-verification/alicja-production-run.json <<EOF
+          cat > deployment-verification/alicja-production-active.json <<EOF
           {
             "state": "running",
             "workflowRunId": "${GITHUB_RUN_ID}",
             "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
             "event": "${GITHUB_EVENT_NAME}",
             "trustedMainCommit": "$(git rev-parse HEAD)",
-            "sourcePullRequest": "${{ github.event.client_payload.source_pr || 'manual' }}",
-            "sourceHeadSha": "${{ github.event.client_payload.source_head_sha || 'manual' }}",
-            "deployJobResult": "${{ needs.deploy.result }}",
+            "triggerHeadBranch": "${{ github.event.workflow_run.head_branch || 'direct-dispatch' }}",
+            "triggerHeadSha": "${{ github.event.workflow_run.head_sha || github.event.client_payload.source_head_sha || 'manual' }}",
             "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
+          git config user.name 'Alicja Production Verification'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deployment-verification/alicja-production-active.json
+          git commit -m 'Record active Alicja production deployment [skip ci]'
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+      - name: Configure GitHub Pages
+        id: configure
+        continue-on-error: true
+        uses: actions/configure-pages@v5
+
+      - name: Upload complete static repository
+        id: upload
+        if: ${{ steps.configure.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+
+      - name: Deploy Pages artifact
+        id: pages
+        if: ${{ steps.upload.outcome == 'success' }}
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+        with:
+          timeout: 3600000
+          error_count: 30
+          reporting_interval: 10000
 
       - name: Require corrected HTML from the actual public URL
         id: http
-        if: ${{ needs.deploy.result == 'success' }}
+        if: ${{ steps.pages.outcome == 'success' }}
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -132,6 +136,7 @@ jobs:
       - name: Install Playwright
         id: install
         if: ${{ steps.http.outcome == 'success' }}
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -144,6 +149,7 @@ jobs:
       - name: Exercise the actual public page
         id: browser
         if: ${{ steps.install.outcome == 'success' }}
+        continue-on-error: true
         env:
           TEST_URL: ${{ steps.http.outputs.test_url }}
           HTTP_BYTES: ${{ steps.http.outputs.bytes }}
@@ -260,7 +266,9 @@ jobs:
         run: |
           set -euo pipefail
           state=failed
-          if [ "${{ needs.deploy.result }}" = 'success' ] \
+          if [ "${{ steps.configure.outcome }}" = 'success' ] \
+            && [ "${{ steps.upload.outcome }}" = 'success' ] \
+            && [ "${{ steps.pages.outcome }}" = 'success' ] \
             && [ "${{ steps.http.outcome }}" = 'success' ] \
             && [ "${{ steps.install.outcome }}" = 'success' ] \
             && [ "${{ steps.browser.outcome }}" = 'success' ] \
@@ -273,11 +281,12 @@ jobs:
             "workflowRunId": "${GITHUB_RUN_ID}",
             "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
             "event": "${GITHUB_EVENT_NAME}",
-            "sourcePullRequest": "${{ github.event.client_payload.source_pr || 'manual' }}",
-            "deployJobResult": "${{ needs.deploy.result }}",
-            "httpStepOutcome": "${{ steps.http.outcome }}",
+            "configureOutcome": "${{ steps.configure.outcome }}",
+            "uploadOutcome": "${{ steps.upload.outcome }}",
+            "deployOutcome": "${{ steps.pages.outcome }}",
+            "httpOutcome": "${{ steps.http.outcome }}",
             "browserInstallOutcome": "${{ steps.install.outcome }}",
-            "browserStepOutcome": "${{ steps.browser.outcome }}",
+            "browserOutcome": "${{ steps.browser.outcome }}",
             "finishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
           EOF
@@ -291,7 +300,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Record evidence on main
+      - name: Record final evidence on main
         if: ${{ always() }}
         continue-on-error: true
         shell: bash
@@ -310,7 +319,9 @@ jobs:
         if: ${{ always() }}
         shell: bash
         run: |
-          test "${{ needs.deploy.result }}" = 'success'
+          test "${{ steps.configure.outcome }}" = 'success'
+          test "${{ steps.upload.outcome }}" = 'success'
+          test "${{ steps.pages.outcome }}" = 'success'
           test "${{ steps.http.outcome }}" = 'success'
           test "${{ steps.install.outcome }}" = 'success'
           test "${{ steps.browser.outcome }}" = 'success'
