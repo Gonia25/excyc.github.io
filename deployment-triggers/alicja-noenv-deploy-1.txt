@@ -1,0 +1,1 @@
+Deploy Alicja Studio Wnętrz from current trusted main without applying the protected github-pages environment to the pull-request job. Prove the real public URL by HTTP, desktop Chromium, and iPad WebKit.
