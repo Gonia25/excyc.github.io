@@ -1,12 +1,12 @@
 {
-  "state": "failed",
-  "workflowRunId": "31123930959",
+  "state": "passed",
+  "workflowRunId": "31126317076",
   "workflowRunAttempt": "1",
   "triggerEvent": "pull_request_target",
-  "triggerCommit": "b4ffce3098b742f492deac16c694475ce5dcea96",
-  "deployJobResult": "cancelled",
-  "httpStepOutcome": "skipped",
-  "browserInstallOutcome": "skipped",
-  "browserStepOutcome": "skipped",
-  "finishedAt": "2026-08-06T18:49:32Z"
+  "triggerCommit": "5b217c593de4b4084fd5e002fbe2134daf97646a",
+  "deployJobResult": "success",
+  "httpStepOutcome": "success",
+  "browserInstallOutcome": "success",
+  "browserStepOutcome": "success",
+  "finishedAt": "2026-08-06T19:48:19Z"
 }

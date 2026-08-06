@@ -1,9 +1,9 @@
 {
   "state": "running",
-  "workflowRunId": "31123930959",
+  "workflowRunId": "31126317076",
   "workflowRunAttempt": "1",
   "triggerEvent": "pull_request_target",
-  "trustedMainCommit": "d8cbbfbe128eb6a2ddd357d8a00b2770f808ca0a",
-  "deployJobResult": "cancelled",
-  "startedAt": "2026-08-06T18:49:32Z"
+  "trustedMainCommit": "ed1d2f3dce33418ba80bd0d5515075a10a0d685f",
+  "deployJobResult": "success",
+  "startedAt": "2026-08-06T19:46:32Z"
 }
