@@ -1,0 +1,424 @@
+name: Publish and verify Alicja Studio directly
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "deployment-triggers/alicja-direct-pages-*.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+  actions: read
+
+concurrency:
+  group: alicja-direct-pages
+  cancel-in-progress: false
+
+env:
+  LIVE_URL: https://gonia25.github.io/excyc.github.io/alicja-studio-wnetrz/
+  SOURCE_FILE: alicja-studio-wnetrz/index.html
+
+jobs:
+  announce:
+    name: Record direct deployment run
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out current main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Validate source and publish observable run marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${SOURCE_FILE}"
+          grep -Fq '<title>Alicja Studio Wnętrz — architektura wnętrz</title>' "${SOURCE_FILE}"
+          grep -Fq 'Wnętrza tworzone' "${SOURCE_FILE}"
+          test "$(grep -o 'class="project reveal"' "${SOURCE_FILE}" | wc -l | tr -d ' ')" = '6'
+          ! grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' "${SOURCE_FILE}"
+          ! grep -Fq 'DecompressionStream' "${SOURCE_FILE}"
+
+          mkdir -p deployment-verification
+          source_hash="$(sha256sum "${SOURCE_FILE}" | awk '{print $1}')"
+          source_bytes="$(wc -c < "${SOURCE_FILE}" | tr -d ' ')"
+          cat > deployment-verification/alicja-direct-run.json <<EOF
+          {
+            "state": "started",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "triggerCommit": "${GITHUB_SHA}",
+            "sourceSha256": "${source_hash}",
+            "sourceBytes": ${source_bytes},
+            "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+          git config user.name 'Alicja Direct Deployment'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deployment-verification/alicja-direct-run.json
+          git commit -m 'Record Alicja direct deployment start [skip ci]'
+          git pull --rebase origin main
+          git push origin HEAD:main
+
+  deploy:
+    name: Deploy complete repository to GitHub Pages
+    needs: announce
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out latest trusted main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Reconfirm the artifact contains corrected direct HTML
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${SOURCE_FILE}"
+          grep -Fq '<title>Alicja Studio Wnętrz — architektura wnętrz</title>' "${SOURCE_FILE}"
+          grep -Fq 'Wnętrza tworzone' "${SOURCE_FILE}"
+          test "$(grep -o 'class="project reveal"' "${SOURCE_FILE}" | wc -l | tr -d ' ')" = '6'
+          ! grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' "${SOURCE_FILE}"
+          ! grep -Fq 'DecompressionStream' "${SOURCE_FILE}"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload complete static repository
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy Pages artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
+        with:
+          timeout: 3600000
+
+  verify:
+    name: Verify public HTTP, desktop Chromium, and iPad WebKit
+    needs: deploy
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out latest main for source comparison and evidence
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Poll actual public URL and require byte-identical corrected HTML
+        id: http
+        if: ${{ needs.deploy.result == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p deployment-verification
+          url="${LIVE_URL}?alicja-direct=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          log='deployment-verification/alicja-direct-http.log'
+          : > "${log}"
+          source_hash="$(sha256sum "${SOURCE_FILE}" | awk '{print $1}')"
+          source_bytes="$(wc -c < "${SOURCE_FILE}" | tr -d ' ')"
+          passed=0
+
+          for attempt in $(seq 1 72); do
+            code="$(curl --location --silent --show-error \
+              --dump-header /tmp/alicja-direct-headers.txt \
+              --output /tmp/alicja-direct-live.html \
+              --write-out '%{http_code}' \
+              --header 'Cache-Control: no-cache, no-store, must-revalidate' \
+              --header 'Pragma: no-cache' \
+              --header 'Expires: 0' \
+              "${url}" 2>>"${log}" || true)"
+            live_hash="$(sha256sum /tmp/alicja-direct-live.html 2>/dev/null | awk '{print $1}' || true)"
+            live_bytes="$(wc -c < /tmp/alicja-direct-live.html 2>/dev/null | tr -d ' ' || echo 0)"
+            content_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{gsub(/\r/,""); value=$0} END{sub(/^[^:]+:[[:space:]]*/,"",value); print value}' /tmp/alicja-direct-headers.txt 2>/dev/null || true)"
+            title=0; heading=0; projects=0; fallback=0; loader=0
+            grep -Fq '<title>Alicja Studio Wnętrz — architektura wnętrz</title>' /tmp/alicja-direct-live.html 2>/dev/null && title=1 || true
+            grep -Fq 'Wnętrza tworzone' /tmp/alicja-direct-live.html 2>/dev/null && heading=1 || true
+            projects="$(grep -o 'class="project reveal"' /tmp/alicja-direct-live.html 2>/dev/null | wc -l | tr -d ' ')"
+            grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' /tmp/alicja-direct-live.html 2>/dev/null && fallback=1 || true
+            grep -Fq 'DecompressionStream' /tmp/alicja-direct-live.html 2>/dev/null && loader=1 || true
+
+            printf 'attempt=%s http=%s contentType=%q sourceBytes=%s liveBytes=%s hashMatch=%s title=%s heading=%s projects=%s oldFallback=%s oldLoader=%s\n' \
+              "${attempt}" "${code}" "${content_type}" "${source_bytes}" "${live_bytes}" \
+              "$([ "${source_hash}" = "${live_hash}" ] && echo 1 || echo 0)" \
+              "${title}" "${heading}" "${projects}" "${fallback}" "${loader}" | tee -a "${log}"
+
+            if [ "${code}" = '200' ] \
+              && [[ "${content_type}" == text/html* ]] \
+              && [ "${source_hash}" = "${live_hash}" ] \
+              && [ "${title}" = '1' ] \
+              && [ "${heading}" = '1' ] \
+              && [ "${projects}" = '6' ] \
+              && [ "${fallback}" = '0' ] \
+              && [ "${loader}" = '0' ]; then
+              passed=1
+              break
+            fi
+            sleep 10
+          done
+
+          cp /tmp/alicja-direct-live.html deployment-verification/alicja-direct-live-response.html 2>/dev/null || true
+          cp /tmp/alicja-direct-headers.txt deployment-verification/alicja-direct-live-headers.txt 2>/dev/null || true
+          if [ "${passed}" != '1' ]; then
+            echo 'result=failed: public URL did not become a byte-identical corrected HTML response' | tee -a "${log}"
+            exit 1
+          fi
+
+          printf '%s\n' \
+            "TEST_URL=${url}" \
+            "SOURCE_HASH=${source_hash}" \
+            "LIVE_HASH=${live_hash}" \
+            "SOURCE_BYTES=${source_bytes}" \
+            "LIVE_BYTES=${live_bytes}" \
+            "CONTENT_TYPE=${content_type}" >> "${GITHUB_ENV}"
+          echo 'result=passed' | tee -a "${log}"
+
+      - name: Install Playwright browser engines
+        id: install
+        if: ${{ steps.http.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p /tmp/alicja-direct-browser
+          cd /tmp/alicja-direct-browser
+          npm init -y > /dev/null 2>&1
+          npm install --no-audit --no-fund playwright@latest 2>&1 \
+            | tee "${GITHUB_WORKSPACE}/deployment-verification/alicja-direct-browser-install.log"
+          npx playwright install --with-deps chromium webkit 2>&1 \
+            | tee -a "${GITHUB_WORKSPACE}/deployment-verification/alicja-direct-browser-install.log"
+
+      - name: Exercise the real public site in Chromium and iPad WebKit
+        id: browser
+        if: ${{ steps.http.outcome == 'success' && steps.install.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          cat > /tmp/alicja-direct-browser/verify.cjs <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const { chromium, webkit } = require('playwright');
+
+          const url = process.env.TEST_URL;
+          const evidence = path.resolve(process.cwd(), 'deployment-verification');
+          fs.mkdirSync(evidence, { recursive: true });
+
+          const cases = [
+            {
+              name: 'chromium-desktop',
+              launcher: chromium,
+              options: { viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 }
+            },
+            {
+              name: 'webkit-ipad-in-app',
+              launcher: webkit,
+              options: {
+                viewport: { width: 768, height: 1024 },
+                deviceScaleFactor: 2,
+                hasTouch: true,
+                isMobile: true,
+                userAgent: 'Mozilla/5.0 (iPad; CPU OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'
+              }
+            }
+          ];
+
+          async function exercise(testCase) {
+            const browser = await testCase.launcher.launch({ headless: true });
+            const context = await browser.newContext(testCase.options);
+            const page = await context.newPage();
+            const consoleErrors = [];
+            const pageErrors = [];
+            const failedRequests = [];
+            page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
+            page.on('pageerror', error => pageErrors.push(error.message));
+            page.on('requestfailed', request => failedRequests.push({
+              url: request.url(),
+              error: request.failure() ? request.failure().errorText : 'unknown'
+            }));
+
+            const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
+            await page.waitForSelector('.hero h1', { state: 'visible', timeout: 120000 });
+            await page.waitForTimeout(1800);
+
+            const initial = await page.evaluate(() => ({
+              title: document.title,
+              heading: document.querySelector('.hero h1')?.innerText.trim() || '',
+              fallbackPresent: document.body.innerText.includes('Ta przeglądarka nie obsługuje prezentacji'),
+              compressionLoaderPresent: document.documentElement.innerHTML.includes('DecompressionStream'),
+              projectCount: document.querySelectorAll('.project').length,
+              navPresent: Boolean(document.querySelector('#nav')),
+              formPresent: Boolean(document.querySelector('#contact-form')),
+              bodyTextLength: document.body.innerText.length
+            }));
+
+            if (!response || response.status() !== 200) throw new Error(`${testCase.name}: HTTP ${response ? response.status() : 'no response'}`);
+            if (initial.title !== 'Alicja Studio Wnętrz — architektura wnętrz') throw new Error(`${testCase.name}: wrong title: ${initial.title}`);
+            if (!initial.heading.includes('Wnętrza tworzone')) throw new Error(`${testCase.name}: hero heading missing`);
+            if (initial.fallbackPresent) throw new Error(`${testCase.name}: obsolete compatibility fallback visible`);
+            if (initial.compressionLoaderPresent) throw new Error(`${testCase.name}: obsolete compression loader remains`);
+            if (initial.projectCount !== 6) throw new Error(`${testCase.name}: expected 6 projects, found ${initial.projectCount}`);
+            if (!initial.navPresent || !initial.formPresent || initial.bodyTextLength < 1500) throw new Error(`${testCase.name}: incomplete DOM`);
+
+            await page.waitForTimeout(500);
+            const cookies = page.locator('#cookies');
+            if (await cookies.isVisible()) await page.locator('#essential').click();
+
+            await page.locator('.filter[data-filter="domy"]').click();
+            const visibleHouses = await page.locator('.project:not(.hidden)').count();
+            if (visibleHouses !== 2) throw new Error(`${testCase.name}: house filter showed ${visibleHouses}, expected 2`);
+            await page.locator('.filter[data-filter="all"]').click();
+
+            await page.locator('.project-open').first().click();
+            await page.waitForSelector('#lightbox.open', { state: 'visible', timeout: 10000 });
+            const lightboxSource = await page.locator('#lightbox-image').getAttribute('src');
+            if (!lightboxSource) throw new Error(`${testCase.name}: lightbox image source missing`);
+            await page.locator('#close').click();
+            await page.waitForSelector('#lightbox', { state: 'hidden', timeout: 10000 });
+
+            let mobileMenuTested = false;
+            const menu = page.locator('#menu');
+            if (await menu.isVisible()) {
+              mobileMenuTested = true;
+              await menu.click();
+              if ((await menu.getAttribute('aria-expanded')) !== 'true') throw new Error(`${testCase.name}: mobile menu aria-expanded failed`);
+              const navOpen = await page.locator('#nav').evaluate(node => node.classList.contains('open'));
+              if (!navOpen) throw new Error(`${testCase.name}: mobile menu did not open`);
+              await menu.click();
+            }
+
+            await page.locator('#kontakt').scrollIntoViewIfNeeded();
+            await page.locator('#contact-form button[type="submit"]').click();
+            const validationMessage = await page.locator('#status').innerText();
+            if (!validationMessage.includes('Uzupełnij wymagane pola')) throw new Error(`${testCase.name}: empty-form validation failed`);
+
+            await page.locator('input[name="name"]').fill('Test użytkownika');
+            await page.locator('input[name="email"]').fill('test@example.com');
+            await page.locator('select[name="type"]').selectOption({ label: 'Mieszkanie' });
+            await page.locator('textarea[name="message"]').fill('Test działania formularza demonstracyjnego.');
+            await page.locator('.consent input').check();
+            await page.locator('#contact-form button[type="submit"]').click();
+            const successMessage = await page.locator('#status').innerText();
+            if (!successMessage.includes('Formularz działa prawidłowo')) throw new Error(`${testCase.name}: completed-form state failed`);
+
+            await page.locator('#start').scrollIntoViewIfNeeded();
+            const screenshot = `alicja-direct-${testCase.name}.jpg`;
+            await page.screenshot({
+              path: path.join(evidence, screenshot),
+              fullPage: true,
+              type: 'jpeg',
+              quality: 78
+            });
+
+            await context.close();
+            await browser.close();
+            return {
+              browser: testCase.name,
+              passed: true,
+              responseStatus: response.status(),
+              ...initial,
+              visibleHouseProjects: visibleHouses,
+              lightboxTested: true,
+              mobileMenuTested,
+              validationMessage,
+              successMessage,
+              consoleErrors,
+              pageErrors,
+              failedRequests,
+              screenshot
+            };
+          }
+
+          (async () => {
+            const browsers = [];
+            for (const testCase of cases) browsers.push(await exercise(testCase));
+            const report = {
+              passed: true,
+              verifiedAt: new Date().toISOString(),
+              canonicalUrl: process.env.LIVE_URL,
+              testedUrl: url,
+              workflowRunId: process.env.GITHUB_RUN_ID,
+              workflowRunAttempt: process.env.GITHUB_RUN_ATTEMPT,
+              sourceSha256: process.env.SOURCE_HASH,
+              liveSha256: process.env.LIVE_HASH,
+              sourceBytes: Number(process.env.SOURCE_BYTES),
+              liveBytes: Number(process.env.LIVE_BYTES),
+              contentType: process.env.CONTENT_TYPE,
+              browsers
+            };
+            fs.writeFileSync(path.join(evidence, 'alicja-direct-live.json'), JSON.stringify(report, null, 2) + '\n');
+            console.log(JSON.stringify(report, null, 2));
+          })().catch(error => {
+            fs.writeFileSync(path.join(evidence, 'alicja-direct-browser-failure.txt'), `${error.stack || error}\n`);
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+          node /tmp/alicja-direct-browser/verify.cjs 2>&1 \
+            | tee deployment-verification/alicja-direct-browser.log
+
+      - name: Write final direct-deployment outcome
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=failed
+          if [ "${{ needs.deploy.result }}" = 'success' ] \
+            && [ "${{ steps.http.outcome }}" = 'success' ] \
+            && [ "${{ steps.install.outcome }}" = 'success' ] \
+            && [ "${{ steps.browser.outcome }}" = 'success' ] \
+            && [ -f deployment-verification/alicja-direct-live.json ]; then
+            state=passed
+          fi
+          cat > deployment-verification/alicja-direct-outcome.json <<EOF
+          {
+            "state": "${state}",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "triggerCommit": "${GITHUB_SHA}",
+            "deployJobResult": "${{ needs.deploy.result }}",
+            "httpStepOutcome": "${{ steps.http.outcome }}",
+            "browserInstallOutcome": "${{ steps.install.outcome }}",
+            "browserStepOutcome": "${{ steps.browser.outcome }}",
+            "finishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+      - name: Upload all direct verification evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: alicja-direct-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: deployment-verification/alicja-direct-*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Commit pass or failure evidence to main
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Alicja Direct Verification'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deployment-verification/alicja-direct-*
+          if git diff --cached --quiet; then
+            echo 'No direct verification evidence changed.'
+            exit 0
+          fi
+          state="$(python3 -c "import json; print(json.load(open('deployment-verification/alicja-direct-outcome.json'))['state'])")"
+          git commit -m "Record Alicja direct public verification: ${state} [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
