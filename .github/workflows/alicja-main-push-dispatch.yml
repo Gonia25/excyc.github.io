@@ -18,14 +18,14 @@ jobs:
   dispatch:
     name: Dispatch and monitor trusted production deployment
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 70
     steps:
       - name: Check out current main
         uses: actions/checkout@v4
         with:
           ref: main
 
-      - name: Create repository_dispatch event and discover run IDs
+      - name: Create repository_dispatch event and wait for production run
         id: request
         env:
           GH_TOKEN: ${{ github.token }}
@@ -44,60 +44,44 @@ jobs:
             --header 'X-GitHub-Api-Version: 2026-03-10' \
             "https://api.github.com/repos/${REPOSITORY}/dispatches" \
             --data "{\"event_type\":\"alicja-production-deploy\",\"client_payload\":{\"source_pr\":\"main-push\",\"source_head_sha\":\"${TRIGGER_SHA}\"}}")"
-          cat /tmp/dispatch-response.txt || true
           test "${status}" = '204'
-          echo "repository_dispatch accepted with HTTP ${status} at ${dispatched_at}."
+          echo "repository_dispatch accepted at ${dispatched_at}."
 
           production_run=''
-          probe_run=''
-          for attempt in $(seq 1 60); do
+          for attempt in $(seq 1 120); do
             curl --location --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
               --header "Authorization: Bearer ${GH_TOKEN}" \
               --header 'X-GitHub-Api-Version: 2026-03-10' \
-              "https://api.github.com/repos/${REPOSITORY}/actions/runs?event=repository_dispatch&per_page=50" \
+              "https://api.github.com/repos/${REPOSITORY}/actions/runs?event=repository_dispatch&per_page=100" \
               > /tmp/repository-dispatch-runs.json
-
-            read -r production_run probe_run < <(DISPATCHED_AT="${dispatched_at}" python3 - <<'PY'
+            production_run="$(DISPATCHED_AT="${dispatched_at}" python3 - <<'PY'
           import datetime, json, os
           with open('/tmp/repository-dispatch-runs.json', encoding='utf-8') as handle:
               data = json.load(handle)
           cutoff = datetime.datetime.fromisoformat(os.environ['DISPATCHED_AT'].replace('Z', '+00:00'))
-          selected = {}
-          names = {
-              'Alicja Studio production deploy and live proof': 'production',
-              'Probe Alicja repository dispatch': 'probe',
-          }
+          candidates = []
           for run in data.get('workflow_runs', []):
               created = datetime.datetime.fromisoformat(run['created_at'].replace('Z', '+00:00'))
-              key = names.get(run.get('name'))
-              if key and run.get('event') == 'repository_dispatch' and created >= cutoff:
-                  current = selected.get(key)
-                  if current is None or run['id'] > current['id']:
-                      selected[key] = run
-          print(selected.get('production', {}).get('id', ''), selected.get('probe', {}).get('id', ''))
+              if run.get('event') == 'repository_dispatch' and run.get('name') == 'Alicja Studio production deploy and live proof' and created >= cutoff:
+                  candidates.append(run)
+          print(max((run['id'] for run in candidates), default=''))
           PY
-            )
-            echo "Discovery attempt ${attempt}: production=${production_run:-none} probe=${probe_run:-none}"
-            if [ -n "${production_run}" ] && [ -n "${probe_run}" ]; then
-              break
-            fi
-            sleep 2
+            )"
+            echo "Discovery ${attempt}/120: production=${production_run:-not visible yet}"
+            [ -n "${production_run}" ] && break
+            sleep 10
           done
-
           test -n "${production_run}"
-          test -n "${probe_run}"
-          echo "status=${status}" >> "${GITHUB_OUTPUT}"
+          echo "http_status=${status}" >> "${GITHUB_OUTPUT}"
           echo "dispatched_at=${dispatched_at}" >> "${GITHUB_OUTPUT}"
           echo "production_run=${production_run}" >> "${GITHUB_OUTPUT}"
-          echo "probe_run=${probe_run}" >> "${GITHUB_OUTPUT}"
 
-      - name: Record accepted dispatch and discovered runs
+      - name: Record accepted dispatch and production run ID
         env:
           PRODUCTION_RUN: ${{ steps.request.outputs.production_run }}
-          PROBE_RUN: ${{ steps.request.outputs.probe_run }}
           DISPATCHED_AT: ${{ steps.request.outputs.dispatched_at }}
-          HTTP_STATUS: ${{ steps.request.outputs.status }}
+          HTTP_STATUS: ${{ steps.request.outputs.http_status }}
         shell: bash
         run: |
           set -euo pipefail
@@ -110,8 +94,7 @@ jobs:
             "dispatcherWorkflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
             "triggerCommit": "${GITHUB_SHA}",
             "dispatchedAt": "${DISPATCHED_AT}",
-            "productionRunId": "${PRODUCTION_RUN}",
-            "probeRunId": "${PROBE_RUN}"
+            "productionRunId": "${PRODUCTION_RUN}"
           }
           EOF
           git config user.name 'Alicja Main Dispatch'
@@ -131,9 +114,9 @@ jobs:
         run: |
           set -euo pipefail
           final_status=''
-          final_conclusion=''
+          final_conclusion='pending'
           final_url=''
-          for attempt in $(seq 1 180); do
+          for attempt in $(seq 1 240); do
             curl --location --silent --show-error \
               --header 'Accept: application/vnd.github+json' \
               --header "Authorization: Bearer ${GH_TOKEN}" \
@@ -147,21 +130,17 @@ jobs:
           print(run.get('status') or '', run.get('conclusion') or 'pending', run.get('html_url') or '')
           PY
             )
-            echo "Production monitor ${attempt}: status=${final_status} conclusion=${final_conclusion}"
-            if [ "${final_status}" = 'completed' ]; then
-              break
-            fi
+            echo "Production ${attempt}/240: status=${final_status} conclusion=${final_conclusion}"
+            [ "${final_status}" = 'completed' ] && break
             sleep 10
           done
           test "${final_status}" = 'completed'
-
           curl --location --silent --show-error \
             --header 'Accept: application/vnd.github+json' \
             --header "Authorization: Bearer ${GH_TOKEN}" \
             --header 'X-GitHub-Api-Version: 2026-03-10' \
             "https://api.github.com/repos/${REPOSITORY}/actions/runs/${PRODUCTION_RUN}/jobs?per_page=100" \
             > /tmp/production-jobs.json
-
           echo "status=${final_status}" >> "${GITHUB_OUTPUT}"
           echo "conclusion=${final_conclusion}" >> "${GITHUB_OUTPUT}"
           echo "url=${final_url}" >> "${GITHUB_OUTPUT}"
@@ -170,7 +149,6 @@ jobs:
         if: ${{ always() && steps.request.outcome == 'success' }}
         env:
           PRODUCTION_RUN: ${{ steps.request.outputs.production_run }}
-          PROBE_RUN: ${{ steps.request.outputs.probe_run }}
           RUN_STATUS: ${{ steps.monitor.outputs.status || 'unknown' }}
           RUN_CONCLUSION: ${{ steps.monitor.outputs.conclusion || 'unknown' }}
           RUN_URL: ${{ steps.monitor.outputs.url || '' }}
@@ -178,39 +156,29 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p deployment-verification
-          JOBS='[]'
-          if [ -f /tmp/production-jobs.json ]; then
-            JOBS="$(python3 - <<'PY'
-          import json
-          with open('/tmp/production-jobs.json', encoding='utf-8') as handle:
-              data = json.load(handle)
-          result = [
-              {
-                  'id': job.get('id'),
-                  'name': job.get('name'),
-                  'status': job.get('status'),
-                  'conclusion': job.get('conclusion'),
-                  'startedAt': job.get('started_at'),
-                  'completedAt': job.get('completed_at'),
-              }
-              for job in data.get('jobs', [])
-          ]
-          print(json.dumps(result, separators=(',', ':')))
-          PY
-            )"
-          fi
-          python3 - <<PY
-          import json
+          python3 - <<'PY'
+          import json, os
+          jobs = []
+          try:
+              with open('/tmp/production-jobs.json', encoding='utf-8') as handle:
+                  jobs = [{
+                      'id': job.get('id'),
+                      'name': job.get('name'),
+                      'status': job.get('status'),
+                      'conclusion': job.get('conclusion'),
+                      'startedAt': job.get('started_at'),
+                      'completedAt': job.get('completed_at'),
+                  } for job in json.load(handle).get('jobs', [])]
+          except FileNotFoundError:
+              pass
           report = {
-              'state': 'completed' if '${RUN_STATUS}' == 'completed' else 'unknown',
-              'productionRunId': '${PRODUCTION_RUN}',
-              'probeRunId': '${PROBE_RUN}',
-              'status': '${RUN_STATUS}',
-              'conclusion': '${RUN_CONCLUSION}',
-              'runUrl': '${RUN_URL}',
-              'monitoredByWorkflowRunId': '${GITHUB_RUN_ID}',
-              'recordedAt': '$(date -u +%Y-%m-%dT%H:%M:%SZ)',
-              'jobs': json.loads('''${JOBS}'''),
+              'state': 'completed' if os.environ['RUN_STATUS'] == 'completed' else 'unknown',
+              'productionRunId': os.environ['PRODUCTION_RUN'],
+              'status': os.environ['RUN_STATUS'],
+              'conclusion': os.environ['RUN_CONCLUSION'],
+              'runUrl': os.environ['RUN_URL'],
+              'monitoredByWorkflowRunId': os.environ['GITHUB_RUN_ID'],
+              'jobs': jobs,
           }
           with open('deployment-verification/alicja-main-production-monitor.json', 'w', encoding='utf-8') as handle:
               json.dump(report, handle, ensure_ascii=False, indent=2)
