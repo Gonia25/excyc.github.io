@@ -4,3 +4,4 @@ Synchronized after repository-dispatch bridge installation: 2026-08-06T17:18:00Z
 Synchronized for lightweight dispatch runner: 2026-08-06T17:23:00Z
 Synchronized for macOS dispatch runner: 2026-08-06T17:27:00Z
 Synchronized for independent repository-dispatch probe: 2026-08-06T17:36:00Z
+Synchronized for explicit repository-dispatch run discovery: 2026-08-06T17:40:00Z
