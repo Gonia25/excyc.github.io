@@ -2,3 +2,4 @@ Trigger the trusted Alicja Studio GitHub Pages deployment and public Chromium/We
 Created: 2026-08-06T17:09:00Z
 Synchronized after repository-dispatch bridge installation: 2026-08-06T17:18:00Z
 Synchronized for lightweight dispatch runner: 2026-08-06T17:23:00Z
+Synchronized for macOS dispatch runner: 2026-08-06T17:27:00Z
