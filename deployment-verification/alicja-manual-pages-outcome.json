@@ -1,0 +1,13 @@
+{
+  "state": "failed",
+  "dispatcherWorkflowRunId": "31126317290",
+  "dispatcherWorkflowRunAttempt": "1",
+  "sourcePullRequest": "8",
+  "sourceHeadSha": "a1fd4374137b4f40253ac89aa747d1ec0d5254de",
+  "pagesRunId": "",
+  "pagesRunUrl": "",
+  "pagesConclusion": "",
+  "httpOutcome": "skipped",
+  "browserOutcome": "skipped",
+  "finishedAt": "2026-08-06T19:26:33Z"
+}
