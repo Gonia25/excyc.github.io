@@ -1,0 +1,3 @@
+Direct GitHub Pages publication and live Chromium/iPad WebKit verification for Alicja Studio Wnętrz.
+Triggered: 2026-08-06T18:04:00Z
+Source requirement: normal direct HTML, no compressed bootstrap and no browser compatibility fallback.
