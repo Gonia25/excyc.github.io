@@ -1,0 +1,1 @@
+Final trusted deployment trigger for Alicja Studio Wnętrz. The base-branch workflow must publish current main and prove the actual public URL in desktop Chromium and iPad WebKit before completion.
