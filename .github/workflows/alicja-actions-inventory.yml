@@ -17,7 +17,7 @@ jobs:
   inventory:
     name: Print exact recent repository-dispatch runs
     if: ${{ startsWith(github.head_ref, 'agent/alicja-actions-inventory') }}
-    runs-on: macos-15
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Query and print unfiltered dispatch-run inventory
