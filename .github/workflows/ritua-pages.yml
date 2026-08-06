@@ -1,16 +1,15 @@
-name: Publish RITUA demo
+name: Publish and verify project demos
 
 on:
   push:
     branches:
       - main
-    paths:
-      - "ritua-shoper-demo/**"
-      - ".github/workflows/ritua-pages.yml"
+    paths-ignore:
+      - "deployment-verification/**"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -20,6 +19,7 @@ concurrency:
 
 jobs:
   deploy:
+    name: Deploy current repository to GitHub Pages
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -38,6 +38,238 @@ jobs:
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@v4
         with:
           timeout: 3600000
+
+  verify:
+    name: Verify Alicja live page in Chromium and WebKit
+    needs: deploy
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TARGET_URL: https://gonia25.github.io/excyc.github.io/alicja-studio-wnetrz/
+    steps:
+      - name: Check out verification workspace
+        uses: actions/checkout@v4
+
+      - name: Wait for the corrected HTML to reach the public URL
+        id: http
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deployment-verification
+          URL="${TARGET_URL}?release=${GITHUB_SHA}-${GITHUB_RUN_ID}"
+          echo "Checking ${URL}"
+
+          for attempt in $(seq 1 72); do
+            code="$(curl -L -sS -o /tmp/alicja-live.html -w '%{http_code}' -H 'Cache-Control: no-cache' "${URL}" || true)"
+            if [ "${code}" = "200" ] \
+              && grep -Fq 'Wnętrza tworzone' /tmp/alicja-live.html \
+              && grep -Fq 'Alicja Studio Wnętrz — architektura wnętrz' /tmp/alicja-live.html \
+              && ! grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' /tmp/alicja-live.html \
+              && ! grep -Fq 'DecompressionStream' /tmp/alicja-live.html; then
+              echo "Correct public HTML detected on attempt ${attempt}."
+              break
+            fi
+
+            if [ "${attempt}" -eq 72 ]; then
+              echo "The public URL never returned the corrected page. Last HTTP status: ${code}" >&2
+              echo '--- First 800 bytes returned ---' >&2
+              head -c 800 /tmp/alicja-live.html >&2 || true
+              exit 1
+            fi
+
+            echo "Attempt ${attempt}: status=${code}; old or incomplete content still present. Retrying in 10 seconds."
+            sleep 10
+          done
+
+          bytes="$(wc -c < /tmp/alicja-live.html | tr -d ' ')"
+          hash="$(sha256sum /tmp/alicja-live.html | awk '{print $1}')"
+          printf '%s\n' "VERIFIED_URL=${URL}" "HTTP_BYTES=${bytes}" "HTTP_SHA256=${hash}" >> "${GITHUB_ENV}"
+
+      - name: Install browser verification tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/alicja-verifier
+          cd /tmp/alicja-verifier
+          npm init -y >/dev/null 2>&1
+          npm install --no-audit --no-fund playwright@latest
+          npx playwright install --with-deps chromium webkit
+
+      - name: Exercise the deployed site in Chromium and WebKit
+        id: browser
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > /tmp/alicja-verifier/verify.cjs <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const { chromium, webkit } = require('playwright');
+
+          const url = process.env.VERIFIED_URL;
+          const outputDir = path.resolve(process.cwd(), 'deployment-verification');
+          fs.mkdirSync(outputDir, { recursive: true });
+
+          const cases = [
+            {
+              name: 'chromium-desktop',
+              launcher: chromium,
+              context: {
+                viewport: { width: 1440, height: 1000 },
+                deviceScaleFactor: 1
+              }
+            },
+            {
+              name: 'webkit-ipad',
+              launcher: webkit,
+              context: {
+                viewport: { width: 1366, height: 1024 },
+                deviceScaleFactor: 2,
+                hasTouch: true,
+                isMobile: true,
+                userAgent: 'Mozilla/5.0 (iPad; CPU OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'
+              }
+            }
+          ];
+
+          (async () => {
+            const results = [];
+
+            for (const testCase of cases) {
+              const browser = await testCase.launcher.launch({ headless: true });
+              const context = await browser.newContext(testCase.context);
+              const page = await context.newPage();
+              const consoleErrors = [];
+              const pageErrors = [];
+
+              page.on('console', message => {
+                if (message.type() === 'error') consoleErrors.push(message.text());
+              });
+              page.on('pageerror', error => pageErrors.push(error.message));
+
+              const response = await page.goto(url, {
+                waitUntil: 'domcontentloaded',
+                timeout: 120000
+              });
+
+              await page.waitForSelector('.hero h1', {
+                state: 'visible',
+                timeout: 120000
+              });
+              await page.waitForTimeout(2500);
+
+              const state = await page.evaluate(() => ({
+                title: document.title,
+                heading: document.querySelector('.hero h1')?.innerText.trim() || '',
+                fallbackPresent: document.body.innerText.includes('Ta przeglądarka nie obsługuje prezentacji'),
+                decompressionLoaderPresent: document.documentElement.innerHTML.includes('DecompressionStream'),
+                projectCount: document.querySelectorAll('.project').length,
+                navPresent: Boolean(document.querySelector('#nav')),
+                formPresent: Boolean(document.querySelector('#contact-form')),
+                bodyLength: document.body.innerText.length
+              }));
+
+              if (!response || response.status() !== 200) throw new Error(`${testCase.name}: HTTP ${response ? response.status() : 'no response'}`);
+              if (state.title !== 'Alicja Studio Wnętrz — architektura wnętrz') throw new Error(`${testCase.name}: unexpected title: ${state.title}`);
+              if (!state.heading.includes('Wnętrza tworzone')) throw new Error(`${testCase.name}: hero heading missing`);
+              if (state.fallbackPresent) throw new Error(`${testCase.name}: obsolete compatibility fallback is visible`);
+              if (state.decompressionLoaderPresent) throw new Error(`${testCase.name}: obsolete DecompressionStream loader remains`);
+              if (state.projectCount !== 6) throw new Error(`${testCase.name}: expected 6 projects, found ${state.projectCount}`);
+              if (!state.navPresent || !state.formPresent || state.bodyLength < 1500) throw new Error(`${testCase.name}: incomplete page DOM`);
+
+              await page.locator('.filter[data-filter="domy"]').click();
+              const visibleHouses = await page.locator('.project:not(.hidden)').count();
+              if (visibleHouses !== 2) throw new Error(`${testCase.name}: portfolio filter returned ${visibleHouses} projects instead of 2`);
+              await page.locator('.filter[data-filter="all"]').click();
+
+              const menu = page.locator('#menu');
+              if (await menu.isVisible()) {
+                await menu.click();
+                const expanded = await menu.getAttribute('aria-expanded');
+                const navOpen = await page.locator('#nav').evaluate(node => node.classList.contains('open'));
+                if (expanded !== 'true' || !navOpen) throw new Error(`${testCase.name}: mobile menu did not open`);
+                await menu.click();
+              }
+
+              await page.locator('#contact-form button[type="submit"]').click();
+              const validationMessage = await page.locator('#status').innerText();
+              if (!validationMessage.includes('Uzupełnij wymagane pola')) throw new Error(`${testCase.name}: form validation state failed`);
+
+              await page.locator('input[name="name"]').fill('Test użytkownika');
+              await page.locator('input[name="email"]').fill('test@example.com');
+              await page.locator('select[name="type"]').selectOption({ label: 'Mieszkanie' });
+              await page.locator('textarea[name="message"]').fill('Test działania formularza demonstracyjnego.');
+              await page.locator('.consent input').check();
+              await page.locator('#contact-form button[type="submit"]').click();
+              const successMessage = await page.locator('#status').innerText();
+              if (!successMessage.includes('Formularz działa prawidłowo')) throw new Error(`${testCase.name}: form success state failed`);
+
+              const screenshotPath = path.join(outputDir, `alicja-${testCase.name}.jpg`);
+              await page.screenshot({ path: screenshotPath, fullPage: true, type: 'jpeg', quality: 78 });
+
+              results.push({
+                browser: testCase.name,
+                responseStatus: response.status(),
+                ...state,
+                visibleHouseProjects: visibleHouses,
+                validationMessage,
+                successMessage,
+                consoleErrors,
+                pageErrors,
+                screenshot: path.basename(screenshotPath),
+                passed: true
+              });
+
+              await context.close();
+              await browser.close();
+            }
+
+            const report = {
+              passed: true,
+              verifiedAt: new Date().toISOString(),
+              canonicalUrl: process.env.TARGET_URL,
+              testedUrl: url,
+              deployedCommit: process.env.GITHUB_SHA,
+              workflowRunId: process.env.GITHUB_RUN_ID,
+              httpBytes: Number(process.env.HTTP_BYTES),
+              httpSha256: process.env.HTTP_SHA256,
+              browsers: results
+            };
+
+            fs.writeFileSync(path.join(outputDir, 'alicja-live.json'), JSON.stringify(report, null, 2) + '\n');
+            console.log(JSON.stringify(report, null, 2));
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+          node /tmp/alicja-verifier/verify.cjs
+
+      - name: Upload live verification evidence
+        if: ${{ always() && steps.http.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: alicja-live-verification-${{ github.run_id }}
+          path: deployment-verification/alicja-*
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Record successful live verification in the repository
+        if: ${{ always() && steps.http.outcome == 'success' && steps.browser.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Pages Verification'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deployment-verification/alicja-live.json deployment-verification/alicja-*.jpg
+          if git diff --cached --quiet; then
+            echo 'No verification changes to record.'
+            exit 0
+          fi
+          git commit -m 'Record verified Alicja live deployment [skip ci]'
+          git pull --rebase origin main
+          git push origin HEAD:main
