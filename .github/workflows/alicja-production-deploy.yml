@@ -1,0 +1,385 @@
+name: Alicja Studio production deploy and live proof
+
+on:
+  repository_dispatch:
+    types: [alicja-production-deploy]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+env:
+  LIVE_URL: https://gonia25.github.io/excyc.github.io/alicja-studio-wnetrz/
+
+concurrency:
+  group: alicja-pages-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Publish corrected trusted source
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+    steps:
+      - name: Check out current trusted main branch
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Reject the obsolete compressed bootstrap
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='alicja-studio-wnetrz/index.html'
+          test -f "${file}"
+          grep -Fq '<title>Alicja Studio Wnętrz — architektura wnętrz</title>' "${file}"
+          grep -Fq 'Wnętrza tworzone' "${file}"
+          test "$(grep -o 'class="project reveal"' "${file}" | wc -l | tr -d ' ')" = '6'
+          ! grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' "${file}"
+          ! grep -Fq 'DecompressionStream' "${file}"
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the complete static repository
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: .
+
+      - name: Deploy GitHub Pages artifact
+        id: pages
+        uses: actions/deploy-pages@v4
+        with:
+          timeout: 3600000
+
+  verify:
+    name: Test the real public URL in Chromium and iPad WebKit
+    needs: deploy
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out trusted main for evidence output
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Initialize machine-readable evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deployment-verification
+          cat > deployment-verification/alicja-production-run.json <<EOF
+          {
+            "state": "running",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "event": "${GITHUB_EVENT_NAME}",
+            "trustedMainCommit": "$(git rev-parse HEAD)",
+            "sourcePullRequest": "${{ github.event.client_payload.source_pr || 'manual' }}",
+            "sourceHeadSha": "${{ github.event.client_payload.source_head_sha || 'manual' }}",
+            "deployJobResult": "${{ needs.deploy.result }}",
+            "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+      - name: Wait for the corrected HTML at the actual public URL
+        id: http
+        if: ${{ needs.deploy.result == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          URL="${LIVE_URL}?verified=${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          LOG='deployment-verification/alicja-production-http.log'
+          : > "${LOG}"
+          echo "target=${URL}" | tee -a "${LOG}"
+          passed=0
+
+          for attempt in $(seq 1 72); do
+            code="$(curl --location --silent --show-error \
+              --output /tmp/alicja-production-live.html \
+              --write-out '%{http_code}' \
+              --header 'Cache-Control: no-cache, no-store, must-revalidate' \
+              --header 'Pragma: no-cache' \
+              --header 'Expires: 0' \
+              "${URL}" 2>>"${LOG}" || true)"
+            bytes="$(wc -c < /tmp/alicja-production-live.html 2>/dev/null | tr -d ' ' || echo 0)"
+            title=0; heading=0; projects=0; fallback=0; loader=0
+            grep -Fq '<title>Alicja Studio Wnętrz — architektura wnętrz</title>' /tmp/alicja-production-live.html 2>/dev/null && title=1 || true
+            grep -Fq 'Wnętrza tworzone' /tmp/alicja-production-live.html 2>/dev/null && heading=1 || true
+            projects="$(grep -o 'class="project reveal"' /tmp/alicja-production-live.html 2>/dev/null | wc -l | tr -d ' ')"
+            grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' /tmp/alicja-production-live.html 2>/dev/null && fallback=1 || true
+            grep -Fq 'DecompressionStream' /tmp/alicja-production-live.html 2>/dev/null && loader=1 || true
+
+            printf 'attempt=%s http=%s bytes=%s title=%s heading=%s projects=%s oldFallback=%s oldLoader=%s\n' \
+              "${attempt}" "${code}" "${bytes}" "${title}" "${heading}" "${projects}" "${fallback}" "${loader}" \
+              | tee -a "${LOG}"
+
+            if [ "${code}" = '200' ] \
+              && [ "${title}" = '1' ] \
+              && [ "${heading}" = '1' ] \
+              && [ "${projects}" = '6' ] \
+              && [ "${fallback}" = '0' ] \
+              && [ "${loader}" = '0' ]; then
+              passed=1
+              break
+            fi
+            sleep 10
+          done
+
+          cp /tmp/alicja-production-live.html deployment-verification/alicja-production-live-response.html 2>/dev/null || true
+          if [ "${passed}" != '1' ]; then
+            echo 'result=failed: public URL never returned the corrected direct HTML' | tee -a "${LOG}"
+            exit 1
+          fi
+
+          bytes="$(wc -c < /tmp/alicja-production-live.html | tr -d ' ')"
+          hash="$(sha256sum /tmp/alicja-production-live.html | awk '{print $1}')"
+          printf '%s\n' "TEST_URL=${URL}" "HTTP_BYTES=${bytes}" "HTTP_SHA256=${hash}" >> "${GITHUB_ENV}"
+          echo 'result=passed' | tee -a "${LOG}"
+
+      - name: Install live browser verification tools
+        id: install
+        if: ${{ steps.http.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          mkdir -p /tmp/alicja-production-browser
+          cd /tmp/alicja-production-browser
+          npm init -y > /dev/null 2>&1
+          npm install --no-audit --no-fund playwright@latest 2>&1 \
+            | tee "${GITHUB_WORKSPACE}/deployment-verification/alicja-production-browser-install.log"
+          npx playwright install --with-deps chromium webkit 2>&1 \
+            | tee -a "${GITHUB_WORKSPACE}/deployment-verification/alicja-production-browser-install.log"
+
+      - name: Exercise the deployed experience end to end
+        id: browser
+        if: ${{ steps.http.outcome == 'success' && steps.install.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -o pipefail
+          cat > /tmp/alicja-production-browser/verify.cjs <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const { chromium, webkit } = require('playwright');
+
+          const testUrl = process.env.TEST_URL;
+          const evidenceDir = path.resolve(process.cwd(), 'deployment-verification');
+          fs.mkdirSync(evidenceDir, { recursive: true });
+
+          const testCases = [
+            {
+              name: 'chromium-desktop',
+              launcher: chromium,
+              context: { viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 }
+            },
+            {
+              name: 'webkit-ipad-in-app',
+              launcher: webkit,
+              context: {
+                viewport: { width: 768, height: 1024 },
+                deviceScaleFactor: 2,
+                hasTouch: true,
+                isMobile: true,
+                userAgent: 'Mozilla/5.0 (iPad; CPU OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1'
+              }
+            }
+          ];
+
+          async function exercise(testCase) {
+            const browser = await testCase.launcher.launch({ headless: true });
+            const context = await browser.newContext(testCase.context);
+            const page = await context.newPage();
+            const consoleErrors = [];
+            const pageErrors = [];
+            const failedRequests = [];
+
+            page.on('console', message => {
+              if (message.type() === 'error') consoleErrors.push(message.text());
+            });
+            page.on('pageerror', error => pageErrors.push(error.message));
+            page.on('requestfailed', request => {
+              failedRequests.push({
+                url: request.url(),
+                error: request.failure() ? request.failure().errorText : 'unknown'
+              });
+            });
+
+            const response = await page.goto(testUrl, { waitUntil: 'domcontentloaded', timeout: 120000 });
+            await page.waitForSelector('.hero h1', { state: 'visible', timeout: 120000 });
+            await page.waitForTimeout(1500);
+
+            const initial = await page.evaluate(() => ({
+              title: document.title,
+              heading: document.querySelector('.hero h1')?.innerText.trim() || '',
+              fallbackPresent: document.body.innerText.includes('Ta przeglądarka nie obsługuje prezentacji'),
+              decompressionLoaderPresent: document.documentElement.innerHTML.includes('DecompressionStream'),
+              projectCount: document.querySelectorAll('.project').length,
+              navPresent: Boolean(document.querySelector('#nav')),
+              formPresent: Boolean(document.querySelector('#contact-form')),
+              bodyTextLength: document.body.innerText.length
+            }));
+
+            if (!response || response.status() !== 200) throw new Error(`${testCase.name}: HTTP ${response ? response.status() : 'no response'}`);
+            if (initial.title !== 'Alicja Studio Wnętrz — architektura wnętrz') throw new Error(`${testCase.name}: incorrect title: ${initial.title}`);
+            if (!initial.heading.includes('Wnętrza tworzone')) throw new Error(`${testCase.name}: hero heading missing`);
+            if (initial.fallbackPresent) throw new Error(`${testCase.name}: obsolete browser fallback is visible`);
+            if (initial.decompressionLoaderPresent) throw new Error(`${testCase.name}: obsolete compression loader remains`);
+            if (initial.projectCount !== 6) throw new Error(`${testCase.name}: expected 6 projects, found ${initial.projectCount}`);
+            if (!initial.navPresent || !initial.formPresent || initial.bodyTextLength < 1500) throw new Error(`${testCase.name}: incomplete document`);
+
+            await page.waitForTimeout(700);
+            if (await page.locator('#cookies').isVisible()) await page.locator('#essential').click();
+
+            await page.locator('.filter[data-filter="domy"]').click();
+            const visibleHouseProjects = await page.locator('.project:not(.hidden)').count();
+            if (visibleHouseProjects !== 2) throw new Error(`${testCase.name}: house filter returned ${visibleHouseProjects}, expected 2`);
+            await page.locator('.filter[data-filter="all"]').click();
+
+            await page.locator('.project-open').first().click();
+            await page.waitForSelector('#lightbox.open', { state: 'visible', timeout: 10000 });
+            if (!(await page.locator('#lightbox-image').getAttribute('src'))) throw new Error(`${testCase.name}: lightbox image source missing`);
+            await page.locator('#close').click();
+            await page.waitForSelector('#lightbox', { state: 'hidden', timeout: 10000 });
+
+            let mobileMenuTested = false;
+            const menu = page.locator('#menu');
+            if (await menu.isVisible()) {
+              mobileMenuTested = true;
+              await menu.click();
+              if ((await menu.getAttribute('aria-expanded')) !== 'true') throw new Error(`${testCase.name}: mobile menu aria state failed`);
+              if (!(await page.locator('#nav').evaluate(node => node.classList.contains('open')))) throw new Error(`${testCase.name}: mobile menu did not open`);
+              await menu.click();
+            }
+
+            await page.locator('#kontakt').scrollIntoViewIfNeeded();
+            await page.locator('#contact-form button[type="submit"]').click();
+            const validationMessage = await page.locator('#status').innerText();
+            if (!validationMessage.includes('Uzupełnij wymagane pola')) throw new Error(`${testCase.name}: required-field validation failed`);
+
+            await page.locator('input[name="name"]').fill('Test użytkownika');
+            await page.locator('input[name="email"]').fill('test@example.com');
+            await page.locator('select[name="type"]').selectOption({ label: 'Mieszkanie' });
+            await page.locator('textarea[name="message"]').fill('Test działania formularza demonstracyjnego.');
+            await page.locator('.consent input').check();
+            await page.locator('#contact-form button[type="submit"]').click();
+            const successMessage = await page.locator('#status').innerText();
+            if (!successMessage.includes('Formularz działa prawidłowo')) throw new Error(`${testCase.name}: completed form state failed`);
+
+            await page.locator('#start').scrollIntoViewIfNeeded();
+            const screenshot = `alicja-production-${testCase.name}.jpg`;
+            await page.screenshot({
+              path: path.join(evidenceDir, screenshot),
+              fullPage: true,
+              type: 'jpeg',
+              quality: 78
+            });
+
+            await context.close();
+            await browser.close();
+
+            return {
+              browser: testCase.name,
+              passed: true,
+              responseStatus: response.status(),
+              ...initial,
+              visibleHouseProjects,
+              lightboxTested: true,
+              mobileMenuTested,
+              validationMessage,
+              successMessage,
+              consoleErrors,
+              pageErrors,
+              failedRequests,
+              screenshot
+            };
+          }
+
+          (async () => {
+            const browsers = [];
+            for (const testCase of testCases) browsers.push(await exercise(testCase));
+
+            const report = {
+              passed: true,
+              verifiedAt: new Date().toISOString(),
+              canonicalUrl: process.env.LIVE_URL,
+              testedUrl: testUrl,
+              workflowRunId: process.env.GITHUB_RUN_ID,
+              workflowRunAttempt: process.env.GITHUB_RUN_ATTEMPT,
+              trustedMainCommit: process.env.GITHUB_SHA,
+              httpBytes: Number(process.env.HTTP_BYTES),
+              httpSha256: process.env.HTTP_SHA256,
+              browsers
+            };
+            fs.writeFileSync(path.join(evidenceDir, 'alicja-production-live.json'), JSON.stringify(report, null, 2) + '\n');
+            console.log(JSON.stringify(report, null, 2));
+          })().catch(error => {
+            fs.writeFileSync(path.join(evidenceDir, 'alicja-production-browser-failure.txt'), `${error.stack || error}\n`);
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
+
+          node /tmp/alicja-production-browser/verify.cjs 2>&1 \
+            | tee deployment-verification/alicja-production-browser.log
+
+      - name: Write final production outcome
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          state=failed
+          if [ "${{ needs.deploy.result }}" = 'success' ] \
+            && [ "${{ steps.http.outcome }}" = 'success' ] \
+            && [ "${{ steps.install.outcome }}" = 'success' ] \
+            && [ "${{ steps.browser.outcome }}" = 'success' ] \
+            && [ -f deployment-verification/alicja-production-live.json ]; then
+            state=passed
+          fi
+
+          cat > deployment-verification/alicja-production-outcome.json <<EOF
+          {
+            "state": "${state}",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "event": "${GITHUB_EVENT_NAME}",
+            "sourcePullRequest": "${{ github.event.client_payload.source_pr || 'manual' }}",
+            "deployJobResult": "${{ needs.deploy.result }}",
+            "httpStepOutcome": "${{ steps.http.outcome }}",
+            "browserInstallOutcome": "${{ steps.install.outcome }}",
+            "browserStepOutcome": "${{ steps.browser.outcome }}",
+            "finishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+      - name: Upload pass or failure evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: alicja-production-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: deployment-verification/alicja-production-*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Record evidence in the repository
+        if: ${{ always() }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'Alicja Production Verification'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deployment-verification/alicja-production-*
+          if git diff --cached --quiet; then
+            echo 'No verification evidence changed.'
+            exit 0
+          fi
+          state="$(python3 -c "import json; print(json.load(open('deployment-verification/alicja-production-outcome.json'))['state'])")"
+          git commit -m "Record Alicja production verification: ${state} [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
