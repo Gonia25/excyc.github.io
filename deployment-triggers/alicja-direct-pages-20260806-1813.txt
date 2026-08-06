@@ -1,0 +1,3 @@
+Retry the now-registered direct GitHub Pages workflow for Alicja Studio Wnętrz.
+Triggered: 2026-08-06T18:13:00Z
+Required proof: byte-identical public HTML plus successful desktop Chromium and iPad WebKit interaction tests.
