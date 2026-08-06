@@ -1,0 +1,11 @@
+{
+  "state": "failed",
+  "workflowRunId": "31121345899",
+  "workflowRunAttempt": "1",
+  "triggerCommit": "84d3ab4020a6a8fbf7276e3e27c0ed0e2dbfa5a0",
+  "deployJobResult": "cancelled",
+  "httpStepOutcome": "failure",
+  "browserInstallOutcome": "skipped",
+  "browserStepOutcome": "skipped",
+  "finishedAt": "2026-08-06T17:19:52Z"
+}
