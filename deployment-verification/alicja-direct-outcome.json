@@ -1,0 +1,11 @@
+{
+  "state": "passed",
+  "workflowRunId": "31125567101",
+  "workflowRunAttempt": "1",
+  "triggerCommit": "71525362a468a2ef54b1f766862a5ec7f103d4fd",
+  "deployJobResult": "success",
+  "httpStepOutcome": "success",
+  "browserInstallOutcome": "success",
+  "browserStepOutcome": "success",
+  "finishedAt": "2026-08-06T19:50:02Z"
+}
