@@ -1,0 +1,10 @@
+{
+  "state": "running",
+  "workflowRunId": "31126850572",
+  "workflowRunAttempt": "1",
+  "triggerEvent": "pull_request_target",
+  "triggerPullRequest": "12",
+  "triggerHeadBranch": "agent/alicja-trusted-deploy-1",
+  "trustedMainCommit": "26cdf02fb87b60d49c9300c8fa2e52a64dc71da7",
+  "startedAt": "2026-08-06T19:48:36Z"
+}
