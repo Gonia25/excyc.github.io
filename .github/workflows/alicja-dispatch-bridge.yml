@@ -1,0 +1,40 @@
+name: Dispatch Alicja production deployment
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  dispatch:
+    name: Request trusted main-branch deployment
+    if: ${{ startsWith(github.head_ref, 'agent/run-alicja-live-verification') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create repository_dispatch event
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_headers="$(mktemp)"
+          status="$(curl --location --silent --show-error \
+            --output /tmp/dispatch-response.txt \
+            --dump-header "${response_headers}" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${REPOSITORY}/dispatches" \
+            --data "{\"event_type\":\"alicja-production-deploy\",\"client_payload\":{\"source_pr\":${PR_NUMBER},\"source_head_sha\":\"${PR_HEAD_SHA}\"}}")"
+          cat "${response_headers}"
+          cat /tmp/dispatch-response.txt || true
+          test "${status}" = '204'
+          echo "repository_dispatch accepted with HTTP ${status}."
