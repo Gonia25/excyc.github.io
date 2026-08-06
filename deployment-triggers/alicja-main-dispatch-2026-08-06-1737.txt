@@ -1,0 +1,1 @@
+Deploy Alicja Studio Wnętrz corrected direct HTML to the public GitHub Pages site and run the production HTTP, Chromium, and iPad WebKit verification suite.
