@@ -1,0 +1,38 @@
+name: Alicja final deployment launcher
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alicja-final-launcher-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate-and-launch:
+    name: Validate trusted main and launch production workflow
+    if: ${{ startsWith(github.head_ref, 'agent/alicja-final-launch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out current trusted main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Validate the corrected Alicja source
+        shell: bash
+        run: |
+          set -euo pipefail
+          file='alicja-studio-wnetrz/index.html'
+          test -f "${file}"
+          grep -Fq '<title>Alicja Studio Wnętrz — architektura wnętrz</title>' "${file}"
+          grep -Fq 'Wnętrza tworzone' "${file}"
+          test "$(grep -o 'class="project reveal"' "${file}" | wc -l | tr -d ' ')" = '6'
+          ! grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' "${file}"
+          ! grep -Fq 'DecompressionStream' "${file}"
+          echo 'Trusted main is ready for the workflow_run production deployment.'
