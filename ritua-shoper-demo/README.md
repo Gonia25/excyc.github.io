@@ -4,6 +4,8 @@ RITUA to kompletna, responsywna wersja demonstracyjna sklepu przygotowana jako p
 
 **Demo:** https://gonia25.github.io/excyc.github.io/ritua-shoper-demo/
 
+**Status:** wersja demonstracyjna gotowa do publicznej prezentacji.
+
 ## Zakres pokazany w demo
 
 - gotowa architektura strony głównej sklepu,
