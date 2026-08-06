@@ -1,0 +1,1 @@
+Publish and verify the Systemy Kolejowe 2027 static site from main. The completed bilingual build is located at systemy-kolejowe-2027/ and is intended for the public project Pages URL.
