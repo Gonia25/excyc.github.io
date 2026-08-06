@@ -6,6 +6,7 @@
   <meta name="theme-color" content="#20352c">
   <meta name="description" content="RITUA — naturalna pielęgnacja, zapachy i codzienne rytuały dla ciała i domu.">
   <title>RITUA — Naturalna pielęgnacja i domowe rytuały</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2320352c'/%3E%3Ctext x='32' y='43' text-anchor='middle' font-family='Georgia' font-size='36' fill='%23fffdf8'%3ER%3C/text%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
@@ -785,7 +786,7 @@
   <section class="search-panel" id="searchPanel" aria-hidden="true" aria-labelledby="searchTitle" inert>
     <div class="search-inner">
       <div class="search-top"><strong id="searchTitle">Czego szukasz?</strong><button type="button" class="close-btn" data-close aria-label="Zamknij wyszukiwarkę">×</button></div>
-      <div class="search-box"><label class="sr-only" for="searchInput">Szukaj produktów</label><input id="searchInput" type="search" placeholder="np. serum, świeca, zestaw…" autocomplete="off"><button type="button" aria-label="Szukaj">→</button></div>
+      <div class="search-box"><label class="sr-only" for="searchInput">Szukaj produktów</label><input id="searchInput" type="search" placeholder="np. serum, świeca, zestaw…" autocomplete="off"><button type="button" id="searchSubmit" aria-label="Otwórz pierwszy wynik wyszukiwania">→</button></div>
       <div class="search-results" id="searchResults"></div>
     </div>
   </section>
@@ -898,11 +899,11 @@
       const visible = activeFilter === "all" && !catalogExpanded ? sorted.slice(0, 4) : sorted;
       productGrid.innerHTML = visible.map(product => `
         <article class="product-card" data-id="${product.id}">
+          <button type="button" class="fav-btn ${favorites.has(product.id) ? "active" : ""}" data-fav="${product.id}" aria-label="${favorites.has(product.id) ? "Usuń z ulubionych" : "Dodaj do ulubionych"}">
+            <svg viewBox="0 0 24 24"><path d="M20.5 8.7c0 5-8.5 10.3-8.5 10.3S3.5 13.7 3.5 8.7C3.5 5.9 5.3 4 7.8 4c1.7 0 3.3 1 4.2 2.5C12.9 5 14.5 4 16.2 4c2.5 0 4.3 1.9 4.3 4.7Z"/></svg>
+          </button>
           <div class="product-media" role="button" tabindex="0" aria-label="Zobacz ${product.name}" data-quick="${product.id}">
             ${product.badge ? `<span class="badge">${product.badge}</span>` : ""}
-            <button type="button" class="fav-btn ${favorites.has(product.id) ? "active" : ""}" data-fav="${product.id}" aria-label="${favorites.has(product.id) ? "Usuń z ulubionych" : "Dodaj do ulubionych"}">
-              <svg viewBox="0 0 24 24"><path d="M20.5 8.7c0 5-8.5 10.3-8.5 10.3S3.5 13.7 3.5 8.7C3.5 5.9 5.3 4 7.8 4c1.7 0 3.3 1 4.2 2.5C12.9 5 14.5 4 16.2 4c2.5 0 4.3 1.9 4.3 4.7Z"/></svg>
-            </button>
             ${productVisual(product)}
           </div>
           <div class="product-info">
@@ -947,7 +948,7 @@
       document.getElementById("shippingBar").style.width = `${Math.min(100, total / 199 * 100)}%`;
       saveState();
       if (!cart.length) {
-        cartItems.innerHTML = `<div class="cart-empty"><p>Twój koszyk czeka na pierwszy rytuał.</p><button type="button" class="btn secondary" data-close>Zobacz bestsellery</button></div>`;
+        cartItems.innerHTML = `<div class="cart-empty"><p>Twój koszyk czeka na pierwszy rytuał.</p><a class="btn secondary" href="#nowosci" data-close>Zobacz bestsellery</a></div>`;
         return;
       }
       cartItems.innerHTML = cart.map(item => {
@@ -1060,6 +1061,9 @@
     document.getElementById("menuOpen").addEventListener("click", () => openLayer(mobileNav));
     overlay.addEventListener("click", () => closeLayers());
     document.getElementById("searchInput").addEventListener("input", event => renderSearch(event.target.value));
+    const openFirstSearchResult = () => document.querySelector("#searchResults [data-search-product]")?.click();
+    document.getElementById("searchSubmit").addEventListener("click", openFirstSearchResult);
+    document.getElementById("searchInput").addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); openFirstSearchResult(); } });
     document.getElementById("modalAdd").addEventListener("click", () => { if (selectedProduct) { addToCart(selectedProduct.id); closeLayers(); setTimeout(() => openLayer(cartDrawer), 100); } });
     document.getElementById("ritualAdd").addEventListener("click", () => { addToCart(6); openLayer(cartDrawer); });
     document.getElementById("checkoutBtn").addEventListener("click", () => showToast(cart.length ? "Koszyk jest gotowy do przekazania do kasy Shoper" : "Dodaj najpierw produkt do koszyka"));
@@ -1069,7 +1073,7 @@
       const email = document.getElementById("newsletterEmail");
       const note = document.getElementById("newsletterNote");
       if (!email.checkValidity()) { note.textContent = "Wpisz poprawny adres e-mail."; email.focus(); return; }
-      note.textContent = "Gotowe — kod RYTUAL10 właśnie trafił na Twoją skrzynkę.";
+      note.textContent = "Dziękujemy — zapis został poprawnie przyjęty w wersji demonstracyjnej.";
       email.value = "";
     });
 
