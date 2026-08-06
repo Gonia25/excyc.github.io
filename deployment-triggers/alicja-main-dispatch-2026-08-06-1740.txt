@@ -1,0 +1,1 @@
+Final clean Alicja Studio Wnętrz production deployment request. Publish current main, verify the public URL, and record the direct dispatch, repository-dispatch delivery, HTTP response, and browser test results.
