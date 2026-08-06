@@ -16,7 +16,7 @@ jobs:
   validate-and-launch:
     name: Validate trusted main and launch production workflow
     if: ${{ startsWith(github.head_ref, 'agent/alicja-final-launch') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     steps:
       - name: Check out current trusted main
