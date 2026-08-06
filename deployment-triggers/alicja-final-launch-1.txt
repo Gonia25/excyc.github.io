@@ -1,0 +1,1 @@
+Launch the trusted workflow_run deployment for Alicja Studio Wnętrz. It must publish current main and prove the real public URL in desktop Chromium and iPad WebKit.
