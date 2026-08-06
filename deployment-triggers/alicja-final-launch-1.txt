@@ -1,3 +1,3 @@
 Launch the trusted workflow_run deployment for Alicja Studio Wnętrz.
-Synchronization attempt 2 after the launcher and production workflows were both present on current main.
+Synchronization attempt 3 after moving the launcher to the lightweight runner queue.
 It must publish current main and prove the real public URL in desktop Chromium and iPad WebKit.
