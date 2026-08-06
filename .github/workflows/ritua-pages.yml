@@ -1,4 +1,4 @@
-name: Publish and verify project demos
+name: Publish and prove project demos
 
 on:
   push:
@@ -18,21 +18,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  announce:
+    name: Record that verification started
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out current main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Write observable run marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p deployment-verification
+          cat > deployment-verification/alicja-run-started.json <<EOF
+          {
+            "state": "started",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "triggerCommit": "${GITHUB_SHA}",
+            "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+          git config user.name 'Pages Verification'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add deployment-verification/alicja-run-started.json
+          git commit -m 'Record Alicja deployment verification start [skip ci]'
+          git pull --rebase origin main
+          git push origin HEAD:main
+
   deploy:
-    name: Deploy current repository to GitHub Pages
+    name: Deploy current main branch to GitHub Pages
+    needs: announce
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - name: Check out published source
+      - name: Check out latest published source
         uses: actions/checkout@v4
+        with:
+          ref: main
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Package the complete site
-        uses: actions/upload-pages-artifact@v3
+      - name: Package the complete static repository
+        uses: actions/upload-pages-artifact@v4
         with:
           path: .
 
@@ -43,7 +76,7 @@ jobs:
           timeout: 3600000
 
   verify:
-    name: Verify Alicja live page in Chromium and WebKit
+    name: Prove the actual public Alicja page
     needs: deploy
     if: ${{ always() }}
     runs-on: ubuntu-latest
@@ -53,57 +86,76 @@ jobs:
     steps:
       - name: Check out verification workspace
         uses: actions/checkout@v4
+        with:
+          ref: main
 
-      - name: Wait for the corrected HTML to reach the public URL
+      - name: Poll the public URL for corrected HTML
         id: http
         shell: bash
         run: |
-          set -euo pipefail
+          set -o pipefail
           mkdir -p deployment-verification
           URL="${TARGET_URL}?release=${GITHUB_SHA}-${GITHUB_RUN_ID}"
-          echo "Checking ${URL}"
+          : > deployment-verification/alicja-http.log
+          echo "TARGET=${URL}" | tee -a deployment-verification/alicja-http.log
 
-          for attempt in $(seq 1 72); do
-            code="$(curl -L -sS -o /tmp/alicja-live.html -w '%{http_code}' -H 'Cache-Control: no-cache' "${URL}" || true)"
+          passed=0
+          for attempt in $(seq 1 48); do
+            code="$(curl -L -sS -o /tmp/alicja-live.html -w '%{http_code}' -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' "${URL}" 2>>deployment-verification/alicja-http.log || true)"
+            bytes="$(wc -c < /tmp/alicja-live.html 2>/dev/null | tr -d ' ' || echo 0)"
+            old_fallback=0
+            old_loader=0
+            correct_heading=0
+            correct_title=0
+            grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' /tmp/alicja-live.html 2>/dev/null && old_fallback=1 || true
+            grep -Fq 'DecompressionStream' /tmp/alicja-live.html 2>/dev/null && old_loader=1 || true
+            grep -Fq 'Wnętrza tworzone' /tmp/alicja-live.html 2>/dev/null && correct_heading=1 || true
+            grep -Fq 'Alicja Studio Wnętrz — architektura wnętrz' /tmp/alicja-live.html 2>/dev/null && correct_title=1 || true
+
+            printf 'attempt=%s status=%s bytes=%s heading=%s title=%s oldFallback=%s oldLoader=%s\n' \
+              "${attempt}" "${code}" "${bytes}" "${correct_heading}" "${correct_title}" "${old_fallback}" "${old_loader}" \
+              | tee -a deployment-verification/alicja-http.log
+
             if [ "${code}" = "200" ] \
-              && grep -Fq 'Wnętrza tworzone' /tmp/alicja-live.html \
-              && grep -Fq 'Alicja Studio Wnętrz — architektura wnętrz' /tmp/alicja-live.html \
-              && ! grep -Fq 'Ta przeglądarka nie obsługuje prezentacji' /tmp/alicja-live.html \
-              && ! grep -Fq 'DecompressionStream' /tmp/alicja-live.html; then
-              echo "Correct public HTML detected on attempt ${attempt}."
+              && [ "${correct_heading}" = "1" ] \
+              && [ "${correct_title}" = "1" ] \
+              && [ "${old_fallback}" = "0" ] \
+              && [ "${old_loader}" = "0" ]; then
+              passed=1
               break
             fi
-
-            if [ "${attempt}" -eq 72 ]; then
-              echo "The public URL never returned the corrected page. Last HTTP status: ${code}" >&2
-              echo '--- First 800 bytes returned ---' >&2
-              head -c 800 /tmp/alicja-live.html >&2 || true
-              exit 1
-            fi
-
-            echo "Attempt ${attempt}: status=${code}; old or incomplete content still present. Retrying in 10 seconds."
             sleep 10
           done
+
+          cp /tmp/alicja-live.html deployment-verification/alicja-live-response.html 2>/dev/null || true
+          if [ "${passed}" != "1" ]; then
+            echo 'RESULT=FAILED: corrected HTML never reached the public URL.' | tee -a deployment-verification/alicja-http.log
+            exit 1
+          fi
 
           bytes="$(wc -c < /tmp/alicja-live.html | tr -d ' ')"
           hash="$(sha256sum /tmp/alicja-live.html | awk '{print $1}')"
           printf '%s\n' "VERIFIED_URL=${URL}" "HTTP_BYTES=${bytes}" "HTTP_SHA256=${hash}" >> "${GITHUB_ENV}"
+          echo 'RESULT=PASSED' | tee -a deployment-verification/alicja-http.log
 
-      - name: Install browser verification tools
+      - name: Install Chromium and WebKit verification tools
+        id: install
+        if: ${{ steps.http.outcome == 'success' }}
         shell: bash
         run: |
-          set -euo pipefail
+          set -o pipefail
           mkdir -p /tmp/alicja-verifier
           cd /tmp/alicja-verifier
-          npm init -y >/dev/null 2>&1
-          npm install --no-audit --no-fund playwright@latest
-          npx playwright install --with-deps chromium webkit
+          npm init -y > /dev/null 2>&1
+          npm install --no-audit --no-fund playwright@latest 2>&1 | tee "${GITHUB_WORKSPACE}/deployment-verification/alicja-browser-install.log"
+          npx playwright install --with-deps chromium webkit 2>&1 | tee -a "${GITHUB_WORKSPACE}/deployment-verification/alicja-browser-install.log"
 
-      - name: Exercise the deployed site in Chromium and WebKit
+      - name: Exercise the live site in desktop Chromium and iPad WebKit
         id: browser
+        if: ${{ steps.http.outcome == 'success' && steps.install.outcome == 'success' }}
         shell: bash
         run: |
-          set -euo pipefail
+          set -o pipefail
           cat > /tmp/alicja-verifier/verify.cjs <<'NODE'
           const fs = require('fs');
           const path = require('path');
@@ -117,10 +169,7 @@ jobs:
             {
               name: 'chromium-desktop',
               launcher: chromium,
-              context: {
-                viewport: { width: 1440, height: 1000 },
-                deviceScaleFactor: 1
-              }
+              context: { viewport: { width: 1440, height: 1000 }, deviceScaleFactor: 1 }
             },
             {
               name: 'webkit-ipad',
@@ -137,28 +186,17 @@ jobs:
 
           (async () => {
             const results = [];
-
             for (const testCase of cases) {
               const browser = await testCase.launcher.launch({ headless: true });
               const context = await browser.newContext(testCase.context);
               const page = await context.newPage();
               const consoleErrors = [];
               const pageErrors = [];
-
-              page.on('console', message => {
-                if (message.type() === 'error') consoleErrors.push(message.text());
-              });
+              page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
               page.on('pageerror', error => pageErrors.push(error.message));
 
-              const response = await page.goto(url, {
-                waitUntil: 'domcontentloaded',
-                timeout: 120000
-              });
-
-              await page.waitForSelector('.hero h1', {
-                state: 'visible',
-                timeout: 120000
-              });
+              const response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 120000 });
+              await page.waitForSelector('.hero h1', { state: 'visible', timeout: 120000 });
               await page.waitForTimeout(2500);
 
               const state = await page.evaluate(() => ({
@@ -175,18 +213,20 @@ jobs:
               if (!response || response.status() !== 200) throw new Error(`${testCase.name}: HTTP ${response ? response.status() : 'no response'}`);
               if (state.title !== 'Alicja Studio Wnętrz — architektura wnętrz') throw new Error(`${testCase.name}: unexpected title: ${state.title}`);
               if (!state.heading.includes('Wnętrza tworzone')) throw new Error(`${testCase.name}: hero heading missing`);
-              if (state.fallbackPresent) throw new Error(`${testCase.name}: obsolete compatibility fallback is visible`);
-              if (state.decompressionLoaderPresent) throw new Error(`${testCase.name}: obsolete DecompressionStream loader remains`);
+              if (state.fallbackPresent) throw new Error(`${testCase.name}: obsolete fallback is visible`);
+              if (state.decompressionLoaderPresent) throw new Error(`${testCase.name}: obsolete compression loader remains`);
               if (state.projectCount !== 6) throw new Error(`${testCase.name}: expected 6 projects, found ${state.projectCount}`);
               if (!state.navPresent || !state.formPresent || state.bodyLength < 1500) throw new Error(`${testCase.name}: incomplete page DOM`);
 
               await page.locator('.filter[data-filter="domy"]').click();
               const visibleHouses = await page.locator('.project:not(.hidden)').count();
-              if (visibleHouses !== 2) throw new Error(`${testCase.name}: portfolio filter returned ${visibleHouses} projects instead of 2`);
+              if (visibleHouses !== 2) throw new Error(`${testCase.name}: portfolio filter returned ${visibleHouses}, expected 2`);
               await page.locator('.filter[data-filter="all"]').click();
 
               const menu = page.locator('#menu');
+              let mobileMenuTested = false;
               if (await menu.isVisible()) {
+                mobileMenuTested = true;
                 await menu.click();
                 const expanded = await menu.getAttribute('aria-expanded');
                 const navOpen = await page.locator('#nav').evaluate(node => node.classList.contains('open'));
@@ -196,7 +236,7 @@ jobs:
 
               await page.locator('#contact-form button[type="submit"]').click();
               const validationMessage = await page.locator('#status').innerText();
-              if (!validationMessage.includes('Uzupełnij wymagane pola')) throw new Error(`${testCase.name}: form validation state failed`);
+              if (!validationMessage.includes('Uzupełnij wymagane pola')) throw new Error(`${testCase.name}: form validation failed`);
 
               await page.locator('input[name="name"]').fill('Test użytkownika');
               await page.locator('input[name="email"]').fill('test@example.com');
@@ -215,6 +255,7 @@ jobs:
                 responseStatus: response.status(),
                 ...state,
                 visibleHouseProjects: visibleHouses,
+                mobileMenuTested,
                 validationMessage,
                 successMessage,
                 consoleErrors,
@@ -222,7 +263,6 @@ jobs:
                 screenshot: path.basename(screenshotPath),
                 passed: true
               });
-
               await context.close();
               await browser.close();
             }
@@ -238,38 +278,63 @@ jobs:
               httpSha256: process.env.HTTP_SHA256,
               browsers: results
             };
-
             fs.writeFileSync(path.join(outputDir, 'alicja-live.json'), JSON.stringify(report, null, 2) + '\n');
             console.log(JSON.stringify(report, null, 2));
           })().catch(error => {
+            fs.writeFileSync(path.join(outputDir, 'alicja-browser-failure.txt'), String(error && error.stack ? error.stack : error) + '\n');
             console.error(error);
             process.exit(1);
           });
           NODE
 
-          node /tmp/alicja-verifier/verify.cjs
+          cd "${GITHUB_WORKSPACE}"
+          node /tmp/alicja-verifier/verify.cjs 2>&1 | tee deployment-verification/alicja-browser.log
 
-      - name: Upload live verification evidence
-        if: ${{ always() && steps.http.outcome == 'success' }}
+      - name: Write final machine-readable outcome
+        if: ${{ always() }}
+        shell: bash
+        run: |
+          mkdir -p deployment-verification
+          final_state=failed
+          if [ "${{ steps.http.outcome }}" = "success" ] && [ "${{ steps.browser.outcome }}" = "success" ] && [ -f deployment-verification/alicja-live.json ]; then
+            final_state=passed
+          fi
+          cat > deployment-verification/alicja-workflow-outcome.json <<EOF
+          {
+            "state": "${final_state}",
+            "workflowRunId": "${GITHUB_RUN_ID}",
+            "workflowRunAttempt": "${GITHUB_RUN_ATTEMPT}",
+            "triggerCommit": "${GITHUB_SHA}",
+            "deployJobResult": "${{ needs.deploy.result }}",
+            "httpStepOutcome": "${{ steps.http.outcome }}",
+            "browserInstallOutcome": "${{ steps.install.outcome }}",
+            "browserStepOutcome": "${{ steps.browser.outcome }}",
+            "finishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          EOF
+
+      - name: Preserve verification evidence as a workflow artifact
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: alicja-live-verification-${{ github.run_id }}
           path: deployment-verification/alicja-*
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30
 
-      - name: Record successful live verification in the repository
-        if: ${{ always() && steps.http.outcome == 'success' && steps.browser.outcome == 'success' }}
+      - name: Commit success or failure evidence to main
+        if: ${{ always() }}
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'Pages Verification'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add deployment-verification/alicja-live.json deployment-verification/alicja-*.jpg
+          git add deployment-verification/alicja-*
           if git diff --cached --quiet; then
-            echo 'No verification changes to record.'
+            echo 'No verification evidence changed.'
             exit 0
           fi
-          git commit -m 'Record verified Alicja live deployment [skip ci]'
+          state="$(python3 -c "import json; print(json.load(open('deployment-verification/alicja-workflow-outcome.json'))['state'])")"
+          git commit -m "Record Alicja live verification: ${state} [skip ci]"
           git pull --rebase origin main
           git push origin HEAD:main
