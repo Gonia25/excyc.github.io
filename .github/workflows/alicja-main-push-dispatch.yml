@@ -1,0 +1,41 @@
+name: Request Alicja production deployment from main
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deployment-triggers/alicja-main-dispatch-*.txt"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: alicja-main-dispatch
+  cancel-in-progress: true
+
+jobs:
+  dispatch:
+    name: Dispatch trusted production deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Create repository_dispatch event
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TRIGGER_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --location --silent --show-error \
+            --output /tmp/dispatch-response.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Accept: application/vnd.github+json' \
+            --header "Authorization: Bearer ${GH_TOKEN}" \
+            --header 'X-GitHub-Api-Version: 2026-03-10' \
+            "https://api.github.com/repos/${REPOSITORY}/dispatches" \
+            --data "{\"event_type\":\"alicja-production-deploy\",\"client_payload\":{\"source_pr\":\"main-push\",\"source_head_sha\":\"${TRIGGER_SHA}\"}}")"
+          cat /tmp/dispatch-response.txt || true
+          test "${status}" = '204'
+          echo "repository_dispatch accepted with HTTP ${status}."
