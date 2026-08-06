@@ -1,0 +1,1 @@
+Final non-cancelling Alicja Studio Wnętrz production deployment. Publish the corrected direct HTML from current main and preserve the run until HTTP, desktop Chromium, and iPad WebKit verification completes.
