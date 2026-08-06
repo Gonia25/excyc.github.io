@@ -16,7 +16,7 @@ jobs:
   dispatch:
     name: Request trusted main-branch deployment
     if: ${{ startsWith(github.head_ref, 'agent/run-alicja-live-verification') }}
-    runs-on: macos-15
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Create repository_dispatch event
